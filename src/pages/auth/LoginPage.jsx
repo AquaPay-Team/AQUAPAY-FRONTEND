@@ -69,7 +69,20 @@ export const LoginPage = () => {
       }
 
       toast.success(response.message || "Welcome back! Signed in successfully.");
-      navigate("/dashboard");
+
+      // Check KYC status for user: redirect to /kyc if not completed
+      const user = response.data?.user;
+      const isKycDone =
+        user?.kyc &&
+        ["approved", "completed", "verified"].includes(
+          String(user.kyc.status || "").toLowerCase()
+        );
+
+      if (!isKycDone) {
+        navigate("/kyc");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
       console.error("Login error:", err);
       const msg =

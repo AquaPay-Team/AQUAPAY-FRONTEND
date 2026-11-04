@@ -1,15 +1,24 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "../pages/auth/LoginPage";
 import UserDashboardPage from "../pages/dashboard/UserDashboardPage";
+import KycVerificationPage from "../pages/kyc/KycVerificationPage";
+import ProtectedRoute from "./ProtectedRoute";
 
 function AppRoutes() {
   return (
     <Routes>
-      {/* Authentication */}
+      {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Dashboard */}
-      <Route path="/dashboard" element={<UserDashboardPage />} />
+      {/* KYC Route (Protected, does not require KYC to be already completed) */}
+      <Route element={<ProtectedRoute requireKyc={false} />}>
+        <Route path="/kyc" element={<KycVerificationPage />} />
+      </Route>
+
+      {/* Authenticated + KYC Required Routes */}
+      <Route element={<ProtectedRoute requireKyc={true} />}>
+        <Route path="/dashboard" element={<UserDashboardPage />} />
+      </Route>
 
       {/* Default */}
       <Route path="/" element={<Navigate to="/login" replace />} />

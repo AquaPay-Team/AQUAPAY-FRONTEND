@@ -6,6 +6,8 @@ import { Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { LightAnimatedBackground } from "../../components/common/LightAnimatedBackground";
+import { ErrorAlert } from "../../components/common/ErrorAlert";
+import { parseApiError } from "../../utils/errorHandler";
 import { loginUser } from "../../api/auth.api";
 
 const schema = z.object({
@@ -24,6 +26,7 @@ export const LoginPage = () => {
   const [showPw, setShowPw] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
   const navigate = useNavigate();
 
   const {
@@ -51,6 +54,7 @@ export const LoginPage = () => {
   const onSubmit = async (data) => {
     try {
       setIsLoading(true);
+      setApiError(null);
 
       const response = await loginUser({
         identifier: data.email.trim(),
@@ -85,11 +89,9 @@ export const LoginPage = () => {
       }
     } catch (err) {
       console.error("Login error:", err);
-      const msg =
-        err.response?.data?.message ||
-        err.message ||
-        "Invalid email or password. Please try again.";
-      toast.error(msg);
+      const parsed = parseApiError(err);
+      setApiError(parsed);
+      toast.error(parsed.message);
     } finally {
       setIsLoading(false);
     }
@@ -135,6 +137,9 @@ export const LoginPage = () => {
 
             {/* Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              {/* API Error Notification Banner */}
+              <ErrorAlert error={apiError} onDismiss={() => setApiError(null)} />
+
               {/* Email Field */}
               <div>
                 <label 
@@ -166,13 +171,7 @@ export const LoginPage = () => {
                   >
                     Password
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    className="text-[12.5px] text-[#3b82f6] hover:text-blue-700 hover:underline font-normal transition-colors cursor-pointer"
-                  >
-                    Forgot password?
-                  </button>
+                  
                 </div>
                 <div className="relative flex items-center">
                   <input
@@ -194,6 +193,13 @@ export const LoginPage = () => {
                     {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-[12.5px] text-[#3b82f6] hover:text-blue-700 hover:underline font-normal transition-colors cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
                 {errors.password && (
                   <p className="text-xs text-rose-500 mt-1">{errors.password.message}</p>
                 )}

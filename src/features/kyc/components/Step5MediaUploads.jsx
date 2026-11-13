@@ -1,89 +1,114 @@
-import React, { useState, useRef } from "react";
+import React, { useRef, useState } from "react";
 import { 
+  Upload, 
+  CheckCircle2, 
   Lightbulb, 
   User, 
   Mic, 
   CreditCard, 
-  Camera, 
-  Video, 
-  Store, 
-  Upload, 
-  CheckCircle2,
-  Sparkles,
-  Volume2
+  Volume2,
+  FileText
 } from "lucide-react";
 
-export function Step5MediaUploads({ formData, onFileUpload }) {
-  const [activeTab, setActiveTab] = useState("consent"); // "consent" | "media" | "shop"
+export function Step5MediaUploads({ 
+  formData, 
+  onFileUpload, 
+  onNext, 
+  onPrev, 
+  isSavingStep 
+}) {
+  const [activeTab, setActiveTab] = useState("consent"); // "consent" | "upload"
 
-  const selfieRef = useRef(null);
-  const videoRef = useRef(null);
-  const shopRef = useRef(null);
+  const selfieInputRef = useRef(null);
+  const videoInputRef = useRef(null);
+  const shopInputRef = useRef(null);
 
-  const handleSelect = (e, assetType, fieldName) => {
+  const [dragActive, setDragActive] = useState({
+    selfie: false,
+    video: false,
+    shop: false,
+  });
+
+  const handleDrag = (e, target, status) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive((prev) => ({ ...prev, [target]: status }));
+  };
+
+  const handleDrop = (e, assetType, fieldName, target) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive((prev) => ({ ...prev, [target]: false }));
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      onFileUpload(file, assetType, fieldName);
+    }
+  };
+
+  const handleFileInputChange = (e, assetType, fieldName) => {
     const file = e.target.files?.[0];
     if (file) {
       onFileUpload(file, assetType, fieldName);
     }
   };
 
-  const nameVal = formData.fullName || "[Your Full Name]";
-  const aadhaarVal = formData.aadhaarNumber || "[Your Aadhaar]";
-  const panVal = formData.panNumber || "[Your PAN]";
+  const selfieFile = formData.selfieFile;
+  const videoFile = formData.videoFile;
+  const shopPhotoFile = formData.shopPhotoFile;
+
+  const nameVal = formData.fullName || "[Full Name]";
+  const aadhaarVal = formData.aadhaarNumber 
+    ? String(formData.aadhaarNumber).replace(/\D/g, "").replace(/(\d{4})(?=\d)/g, "$1 ")
+    : "[Aadhaar Number]";
+  const panVal = formData.panNumber || "[PAN Number]";
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="bg-white rounded-2xl max-w-2xl mx-auto space-y-6">
       {/* Header */}
-      <div className="border-b border-slate-200 pb-3">
-        <h3 className="text-base font-bold text-slate-900">Video KYC Verification</h3>
-        <p className="text-xs text-slate-500">
-          Complete all 3 steps to verify your identity
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-[#0a1945] tracking-tight">
+            Upload Documents
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Upload your media & business documents to verify your profile
+          </p>
+        </div>
       </div>
 
-      {/* 3 Step Tabs */}
-      <div className="border-b border-slate-200">
-        <div className="flex gap-6 sm:gap-8 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setActiveTab("consent")}
-            className={`pb-3 border-b-2 transition cursor-pointer ${
-              activeTab === "consent"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            1. Consent Script
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("media")}
-            className={`pb-3 border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "media"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <span>2. Upload Video & Selfie</span>
-            {(formData.videoFile || formData.selfieFile) && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("shop")}
-            className={`pb-3 border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
-              activeTab === "shop"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <span>3. Shop Image</span>
-            {formData.shopPhotoFile && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            )}
-          </button>
-        </div>
+      {/* Tab Switcher */}
+      <div className="flex items-center gap-4 sm:gap-6 border-b border-slate-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab("consent")}
+          className={`pb-3 text-xs sm:text-sm font-semibold transition cursor-pointer border-b-2 flex items-center gap-1.5 ${
+            activeTab === "consent"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>1. Consent Scripts</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">
+            Read Aloud
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("upload")}
+          className={`pb-3 text-xs sm:text-sm font-semibold transition cursor-pointer border-b-2 flex items-center gap-1.5 ${
+            activeTab === "upload"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Upload className="w-4 h-4" />
+          <span>2. Upload Files</span>
+          {(selfieFile || videoFile || shopPhotoFile) && (
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          )}
+        </button>
       </div>
 
       {/* Instruction Pills */}
@@ -108,7 +133,7 @@ export function Step5MediaUploads({ formData, onFileUpload }) {
 
       {/* TAB 1: CONSENT SCRIPTS */}
       {activeTab === "consent" && (
-        <div className="space-y-4 animate-fadeIn">
+        <div className="space-y-4">
           {/* English Script */}
           <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-5 space-y-2.5">
             <div className="flex items-center justify-between">
@@ -121,7 +146,7 @@ export function Step5MediaUploads({ formData, onFileUpload }) {
               </span>
             </div>
             <p className="text-[13.5px] text-slate-800 leading-relaxed font-serif sm:font-sans bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              "My name is <strong className="text-blue-700 underline underline-offset-2">{nameVal}</strong>, my Aadhaar number is <strong className="text-blue-700 underline underline-offset-2">{aadhaarVal}</strong>. My PAN card number is <strong className="text-blue-700 underline underline-offset-2">{panVal}</strong>. I want to use AquaPay. I will ensure I collect all KYC documents from customers for every transaction. I take full responsibility for any fraudulent activity under my ID and will provide required documents for any chargebacks."
+              &quot;My name is <strong className="text-blue-700 underline underline-offset-2">{nameVal}</strong>, my Aadhaar number is <strong className="text-blue-700 underline underline-offset-2">{aadhaarVal}</strong>. My PAN card number is <strong className="text-blue-700 underline underline-offset-2">{panVal}</strong>. I want to use AquaPay. I will ensure I collect all KYC documents from customers for every transaction. I take full responsibility for any fraudulent activity under my ID and will provide required documents for any chargebacks.&quot;
             </p>
           </div>
 
@@ -134,7 +159,7 @@ export function Step5MediaUploads({ formData, onFileUpload }) {
               </span>
             </div>
             <p className="text-[13.5px] text-slate-800 leading-relaxed bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              "मेरा नाम <strong className="text-blue-700 underline underline-offset-2">{nameVal}</strong> है, मेरा आधार नंबर <strong className="text-blue-700 underline underline-offset-2">{aadhaarVal}</strong> है। मेरा पैन कार्ड नंबर <strong className="text-blue-700 underline underline-offset-2">{panVal}</strong> है। मैं AquaPay का उपयोग करना चाहता हूँ। मैं सुनिश्चित करूँगा कि प्रत्येक लेन-देन में ग्राहक से सभी केवाईसी दस्तावेज़ लूँ। मेरे आईडी के तहत किसी भी धोखाधड़ी की पूरी जिम्मेदारी मेरी होगी।"
+              &quot;मेरा नाम <strong className="text-blue-700 underline underline-offset-2">{nameVal}</strong> है, मेरा आधार नंबर <strong className="text-blue-700 underline underline-offset-2">{aadhaarVal}</strong> है। मेरा पैन कार्ड नंबर <strong className="text-blue-700 underline underline-offset-2">{panVal}</strong> है। मैं AquaPay का उपयोग करना चाहता हूँ। मैं सुनिश्चित करूँगा कि प्रत्येक लेन-देन में ग्राहक से सभी केवाईसी दस्तावेज़ लूँ। मेरे आईडी के तहत किसी भी धोखाधड़ी की पूरी जिम्मेदारी मेरी होगी।&quot;
             </p>
           </div>
 
@@ -147,155 +172,220 @@ export function Step5MediaUploads({ formData, onFileUpload }) {
               </span>
             </div>
             <p className="text-[13.5px] text-slate-800 leading-relaxed bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              "મારું નામ <strong className="text-blue-700 underline underline-offset-2">{nameVal}</strong> છે, મારો આધાર નંબર <strong className="text-blue-700 underline underline-offset-2">{aadhaarVal}</strong> છે. મારો પાન કાર્ડ નંબર <strong className="text-blue-700 underline underline-offset-2">{panVal}</strong> છે. હું AquaPay નો ઉપયોગ કરવા માંગું છું. હું ખાતરી કરીશ કે દરેક ટ્રાન્ઝેક્શનમાં ગ્રાહક પાસેથી તમામ KYC દસ્તાવેજો લઈશ. મારી ID હેઠળ થતી કોઈપણ છેતરપિંડી માટે સંપૂર્ણ જવાબદારી મારી રહેશે."
+              &quot;મારું નામ <strong className="text-blue-700 underline underline-offset-2">{nameVal}</strong> છે, મારો આધાર નંબર <strong className="text-blue-700 underline underline-offset-2">{aadhaarVal}</strong> છે. મારો પાન કાર્ડ નંબર <strong className="text-blue-700 underline underline-offset-2">{panVal}</strong> છે. હું AquaPay નો ઉપયોગ કરવા માંગું છું. હું ખાતરી કરીશ કે દરેક ટ્રાન્ઝેક્શનમાં ગ્રાહક પાસેથી તમામ KYC દસ્તાવેજો લઈશ. મારી ID હેઠળ થતી કોઈપણ છેતરપિંડી માટે સંપૂર્ણ જવાબદારી મારી રહેશે.&quot;
             </p>
           </div>
 
-          {/* Quick Action to next tab */}
-          <div className="flex justify-end pt-2">
+          <div className="pt-2 flex justify-end">
             <button
               type="button"
-              onClick={() => setActiveTab("media")}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-xs transition cursor-pointer"
+              onClick={() => setActiveTab("upload")}
+              className="bg-[#0a1945] hover:bg-[#13286b] text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-xs transition cursor-pointer"
             >
-              Ready to Record / Upload Video & Selfie →
+              Proceed to Upload Documents &rarr;
             </button>
           </div>
         </div>
       )}
 
-      {/* TAB 2: UPLOAD VIDEO & SELFIE */}
-      {activeTab === "media" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fadeIn">
-          {/* Consent Video KYC Upload */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col items-center text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
-              <Video className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-slate-900">Video KYC Clip</h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Record a 5-10 sec video reading any of the consent scripts above
-              </p>
-            </div>
-
+      {/* TAB 2: EXISTING UPLOAD ZONES */}
+      {activeTab === "upload" && (
+        <div className="space-y-5 pt-2">
+          {/* 1. Selfie Photo */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-900 mb-2">
+              Selfie Photo
+            </label>
             <input
               type="file"
-              ref={videoRef}
-              accept="video/*"
+              ref={selfieInputRef}
+              accept="image/png,image/jpeg,image/jpg"
               className="hidden"
-              onChange={(e) => handleSelect(e, "consent_video", "videoFile")}
+              onChange={(e) => handleFileInputChange(e, "selfie", "selfieFile")}
             />
-
             <div
-              onClick={() => videoRef.current?.click()}
-              className="w-full h-36 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center p-3 text-center group hover:border-blue-500 hover:bg-blue-50/20 transition cursor-pointer shadow-xs"
+              onDragOver={(e) => handleDrag(e, "selfie", true)}
+              onDragLeave={(e) => handleDrag(e, "selfie", false)}
+              onDrop={(e) => handleDrop(e, "selfie", "selfieFile", "selfie")}
+              className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center text-center transition ${
+                dragActive.selfie
+                  ? "border-[#00c5ff] bg-cyan-50/20"
+                  : selfieFile
+                  ? "border-emerald-400 bg-emerald-50/10"
+                  : "border-slate-300 bg-white hover:border-slate-400"
+              }`}
             >
-              {formData.videoFile ? (
-                <div className="flex flex-col items-center space-y-1.5">
-                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
-                  <span className="text-xs text-slate-800 font-semibold truncate max-w-[200px]">
-                    {typeof formData.videoFile === "string" ? formData.videoFile : formData.videoFile.name}
+              {selfieFile ? (
+                <div className="flex flex-col items-center space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                  <span className="text-sm font-semibold text-slate-900 truncate max-w-xs">
+                    {typeof selfieFile === "string" ? selfieFile : selfieFile.name}
                   </span>
-                  <span className="text-[11px] text-emerald-700 font-medium">Video Attached • Click to change</span>
+                  <span className="text-xs text-emerald-700 font-medium">Selfie Attached Successfully</span>
+                  <button
+                    type="button"
+                    onClick={() => selfieInputRef.current?.click()}
+                    className="mt-2 text-xs font-semibold text-[#0a1945] hover:underline cursor-pointer"
+                  >
+                    Change File
+                  </button>
                 </div>
               ) : (
                 <>
-                  <Upload className="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition mb-1.5" />
-                  <span className="text-xs text-slate-700 font-semibold">Click to select video file</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">MP4, WEBM, MOV up to 50MB</span>
+                  <Upload className="w-8 h-8 text-[#0284c7] mb-2 stroke-[1.8]" />
+                  <span className="text-sm font-medium text-slate-900">
+                    Drag and drop selfie photo here
+                  </span>
+                  <span className="text-xs text-slate-400 mt-0.5 mb-3">
+                    PNG, JPG or JPEG (max. 10 MB)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => selfieInputRef.current?.click()}
+                    className="bg-[#0a1945] hover:bg-[#13286b] active:scale-[0.99] text-white text-xs font-semibold px-6 py-2.5 rounded-xl shadow-xs transition cursor-pointer"
+                  >
+                    Browse Files
+                  </button>
                 </>
               )}
             </div>
           </div>
 
-          {/* Selfie Upload */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col items-center text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
-              <Camera className="w-6 h-6" />
+          {/* 2. Video KYC upload */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-semibold text-slate-900">
+                Video KYC upload
+              </label>
+              <button
+                type="button"
+                onClick={() => setActiveTab("consent")}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium underline cursor-pointer"
+              >
+                View Consent Scripts
+              </button>
             </div>
-            <div>
-              <h4 className="text-sm font-bold text-slate-900">Live Agent Selfie</h4>
-              <p className="text-xs text-slate-500 mt-0.5">Clear frontal headshot with plain background</p>
-            </div>
-
             <input
               type="file"
-              ref={selfieRef}
-              accept="image/*"
+              ref={videoInputRef}
+              accept="video/mp4,video/quicktime,video/mov,video/webm"
               className="hidden"
-              onChange={(e) => handleSelect(e, "selfie", "selfieFile")}
+              onChange={(e) => handleFileInputChange(e, "consent_video", "videoFile")}
             />
-
             <div
-              onClick={() => selfieRef.current?.click()}
-              className="w-full h-36 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center p-3 text-center group hover:border-blue-500 hover:bg-blue-50/20 transition cursor-pointer shadow-xs"
+              onDragOver={(e) => handleDrag(e, "video", true)}
+              onDragLeave={(e) => handleDrag(e, "video", false)}
+              onDrop={(e) => handleDrop(e, "consent_video", "videoFile", "video")}
+              className={`border-2 border-dashed rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition ${
+                dragActive.video
+                  ? "border-[#00c5ff] bg-cyan-50/20"
+                  : videoFile
+                  ? "border-emerald-400 bg-emerald-50/10"
+                  : "border-slate-300 bg-white hover:border-slate-400"
+              }`}
             >
-              {formData.selfieFile ? (
-                <div className="flex flex-col items-center space-y-1.5">
-                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
-                  <span className="text-xs text-slate-800 font-semibold truncate max-w-[200px]">
-                    {typeof formData.selfieFile === "string" ? formData.selfieFile : formData.selfieFile.name}
+              <div className="flex items-center space-x-3.5 min-w-0">
+                {videoFile ? (
+                  <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
+                ) : (
+                  <Upload className="w-7 h-7 text-[#0284c7] shrink-0 stroke-[1.8]" />
+                )}
+                <div className="text-left min-w-0">
+                  <span className="block text-sm font-medium text-slate-900 truncate">
+                    {videoFile 
+                      ? (typeof videoFile === "string" ? videoFile : videoFile.name)
+                      : "Drag and drop KYC video here"}
                   </span>
-                  <span className="text-[11px] text-emerald-700 font-medium">Photo Attached • Click to change</span>
+                  <span className="block text-xs text-slate-400">
+                    MP4, MOV (max. 50 MB)
+                  </span>
                 </div>
-              ) : (
-                <>
-                  <Upload className="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition mb-1.5" />
-                  <span className="text-xs text-slate-700 font-semibold">Click to upload photo</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">JPG, PNG up to 10MB</span>
-                </>
-              )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                className="bg-[#0a1945] hover:bg-[#13286b] active:scale-[0.99] text-white text-xs font-semibold px-5 py-2 rounded-xl shadow-xs transition shrink-0 cursor-pointer self-start sm:self-auto"
+              >
+                {videoFile ? "Change File" : "Browse Files"}
+              </button>
+            </div>
+          </div>
+
+          {/* 3. Shop / Business Location Photo */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-900 mb-2">
+              Shop / Business Location Photo
+            </label>
+            <input
+              type="file"
+              ref={shopInputRef}
+              accept="image/png,image/jpeg,image/jpg"
+              className="hidden"
+              onChange={(e) => handleFileInputChange(e, "shop_image", "shopPhotoFile")}
+            />
+            <div
+              onDragOver={(e) => handleDrag(e, "shop", true)}
+              onDragLeave={(e) => handleDrag(e, "shop", false)}
+              onDrop={(e) => handleDrop(e, "shop_image", "shopPhotoFile", "shop")}
+              className={`border-2 border-dashed rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition ${
+                dragActive.shop
+                  ? "border-[#00c5ff] bg-cyan-50/20"
+                  : shopPhotoFile
+                  ? "border-emerald-400 bg-emerald-50/10"
+                  : "border-slate-300 bg-white hover:border-slate-400"
+              }`}
+            >
+              <div className="flex items-center space-x-3.5 min-w-0">
+                {shopPhotoFile ? (
+                  <CheckCircle2 className="w-7 h-7 text-emerald-600 shrink-0" />
+                ) : (
+                  <Upload className="w-7 h-7 text-[#0284c7] shrink-0 stroke-[1.8]" />
+                )}
+                <div className="text-left min-w-0">
+                  <span className="block text-sm font-medium text-slate-900 truncate">
+                    {shopPhotoFile 
+                      ? (typeof shopPhotoFile === "string" ? shopPhotoFile : shopPhotoFile.name)
+                      : "Drag and drop shop location photo here"}
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    PNG, JPG or JPEG (max. 10 MB)
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => shopInputRef.current?.click()}
+                className="bg-[#0a1945] hover:bg-[#13286b] active:scale-[0.99] text-white text-xs font-semibold px-5 py-2 rounded-xl shadow-xs transition shrink-0 cursor-pointer self-start sm:self-auto"
+              >
+                {shopPhotoFile ? "Change File" : "Browse Files"}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB 3: SHOP IMAGE */}
-      {activeTab === "shop" && (
-        <div className="max-w-xl mx-auto animate-fadeIn">
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col items-center text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center">
-              <Store className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-slate-900">Shop / Office Exterior Photo</h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Front exterior photo showing business signboard and entrance clearly
-              </p>
-            </div>
+      {/* Footer Navigation Buttons */}
+      <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+        <button
+          type="button"
+          onClick={onPrev}
+          disabled={isSavingStep}
+          className="px-5 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+        >
+          Cancel
+        </button>
 
-            <input
-              type="file"
-              ref={shopRef}
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleSelect(e, "shop_image", "shopPhotoFile")}
-            />
-
-            <div
-              onClick={() => shopRef.current?.click()}
-              className="w-full h-40 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center p-3 text-center group hover:border-blue-500 hover:bg-blue-50/20 transition cursor-pointer shadow-xs"
-            >
-              {formData.shopPhotoFile ? (
-                <div className="flex flex-col items-center space-y-1.5">
-                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
-                  <span className="text-xs text-slate-800 font-semibold truncate max-w-[220px]">
-                    {typeof formData.shopPhotoFile === "string" ? formData.shopPhotoFile : formData.shopPhotoFile.name}
-                  </span>
-                  <span className="text-[11px] text-emerald-700 font-medium">Storefront Attached • Click to change</span>
-                </div>
-              ) : (
-                <>
-                  <Upload className="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition mb-1.5" />
-                  <span className="text-xs text-slate-700 font-semibold">Click to upload store photo</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">Ensure signboard is readable</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={isSavingStep}
+          className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white text-xs font-semibold px-7 py-2.5 rounded-xl shadow-md transition cursor-pointer"
+        >
+          {isSavingStep ? "Processing..." : "Continue"}
+        </button>
+      </div>
     </div>
   );
 }

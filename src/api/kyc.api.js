@@ -12,13 +12,13 @@ export const saveBasicDetails = async (data) => {
   return response.data;
 };
 
-export const requestBasicDetailsOtp = async (channel = "mobile") => {
-  const response = await api.post("/kyc/basic-details/request-otp", { channel });
+export const requestBasicDetailsOtp = async () => {
+  const response = await api.post("/kyc/basic-details/request-otp", {});
   return response.data;
 };
 
-export const verifyBasicDetailsOtp = async (channel, otp) => {
-  const response = await api.post("/kyc/basic-details/verify-otp", { channel, otp });
+export const verifyBasicDetailsOtp = async (otp) => {
+  const response = await api.post("/kyc/basic-details/verify-otp", { otp });
   return response.data;
 };
 

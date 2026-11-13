@@ -9,22 +9,26 @@ export function KycStepper({
   onSelectStep,
   isSubmitted,
 }) {
+  const percentComplete = Math.round((completedSteps.length / steps.length) * 100);
+
   return (
-    <div className="mb-8 bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-6 shadow-sm">
-      {/* Top Progress Bar Line */}
-      <div className="relative mb-6 hidden md:block">
-        <div className="overflow-hidden h-2 text-xs flex rounded-full bg-slate-100">
+    <div className="mb-6 bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+      {/* Top Progress Bar & Counter */}
+      <div className="mb-5 flex flex-col gap-2">
+        <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+          <span>Verification Progress: <strong className="text-slate-800">{completedSteps.length} of {steps.length} completed</strong></span>
+          <span className="font-semibold text-blue-700">{percentComplete}%</span>
+        </div>
+        <div className="overflow-hidden h-1.5 w-full rounded-full bg-slate-100">
           <div
-            style={{
-              width: `${(completedSteps.length / steps.length) * 100}%`,
-            }}
-            className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600 transition-all duration-500 ease-out"
+            style={{ width: `${percentComplete}%` }}
+            className="h-full bg-blue-600 transition-all duration-300 ease-out rounded-full"
           ></div>
         </div>
       </div>
 
       {/* Step Icons Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
         {steps.map((step) => {
           const Icon = step.icon;
           const isDone = completedSteps.includes(step.id) || isSubmitted;
@@ -47,55 +51,55 @@ export function KycStepper({
                   onSelectStep(step.id);
                 } else {
                   toast.error(
-                    `Step ${step.id - 1} must be completed before you can access Step ${step.id} (${step.name}).`
+                    `Please complete Step ${step.id - 1} before proceeding to Step ${step.id} (${step.name}).`
                   );
                 }
               }}
               disabled={!isAccessible}
-              className={`flex flex-col items-center p-2.5 rounded-xl transition-all duration-200 text-center relative select-none ${
+              className={`flex flex-col items-center p-2.5 rounded-xl transition-all duration-150 text-center relative select-none ${
                 isCurrent
-                  ? "bg-blue-50/70 border border-blue-500 text-blue-700 shadow-xs ring-1 ring-blue-500/20 cursor-default"
+                  ? "bg-blue-50/80 border border-blue-600 text-blue-900 shadow-xs ring-1 ring-blue-600/10 cursor-default"
                   : isDone
-                  ? "bg-emerald-50/70 hover:bg-emerald-100/60 text-emerald-700 border border-emerald-200 cursor-pointer"
+                  ? "bg-emerald-50/80 hover:bg-emerald-100/70 text-emerald-900 border border-emerald-200 cursor-pointer"
                   : isAccessible
                   ? "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 cursor-pointer"
-                  : "bg-slate-50/80 text-slate-400 border border-slate-200/50 opacity-60 cursor-not-allowed"
+                  : "bg-slate-50 text-slate-400 border border-slate-200/60 opacity-60 cursor-not-allowed"
               }`}
             >
               <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 transition-all ${
+                className={`w-8 h-8 rounded-lg flex items-center justify-center mb-1.5 transition-all text-xs font-semibold ${
                   isCurrent
-                    ? "bg-gradient-to-tr from-blue-600 to-cyan-600 text-white shadow-xs"
+                    ? "bg-blue-600 text-white shadow-xs"
                     : isDone
-                    ? "bg-emerald-500 text-white shadow-xs"
+                    ? "bg-emerald-600 text-white shadow-xs"
                     : isAccessible
-                    ? "bg-slate-200 text-slate-600"
+                    ? "bg-slate-100 text-slate-700 border border-slate-200"
                     : "bg-slate-100 text-slate-400"
                 }`}
               >
                 {isDone ? (
-                  <Check className="w-5 h-5 stroke-[2.5]" />
+                  <Check className="w-4 h-4 stroke-[2.5]" />
                 ) : !isAccessible ? (
-                  <Lock className="w-4 h-4 text-slate-400" />
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
                 ) : (
                   <Icon className="w-4 h-4" />
                 )}
               </div>
 
               <span
-                className={`text-xs font-semibold line-clamp-1 ${
+                className={`text-xs font-semibold leading-tight line-clamp-1 ${
                   isCurrent
-                    ? "text-blue-900"
+                    ? "text-blue-900 font-bold"
                     : isDone
                     ? "text-emerald-900"
                     : isAccessible
-                    ? "text-slate-700"
+                    ? "text-slate-800"
                     : "text-slate-400"
                 }`}
               >
                 {step.id}. {step.name}
               </span>
-              <span className="text-[10px] text-slate-400 hidden lg:block mt-0.5">
+              <span className="text-[11px] text-slate-500 hidden lg:block mt-0.5 line-clamp-1">
                 {step.desc}
               </span>
             </button>

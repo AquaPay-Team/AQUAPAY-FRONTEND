@@ -1,245 +1,379 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
+  Menu,
+  Minus,
+  Plus,
+  Maximize2,
+  RotateCw,
   Download, 
   Printer, 
-  RotateCw, 
-  Menu, 
-  ZoomIn, 
-  ZoomOut,
-  Maximize2,
-  FileCheck2,
-  Check
+  MoreVertical,
+  HardDrive
 } from "lucide-react";
 import { toast } from "sonner";
+import { jsPDF } from "jspdf";
+import { getAgreementDetails } from "../../../api/kyc.api";
 
-export function Step6Agreements({ formData, onChange }) {
+export function Step6Agreements({ 
+  formData, 
+  onChange, 
+  onNext, 
+  isSavingStep = false 
+}) {
+  const [agreementData, setAgreementData] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [rotation, setRotation] = useState(0);
+  const docContainerRef = useRef(null);
 
-  const currentDate = new Date().toLocaleDateString("en-GB", {
+  // Load dynamic agreement details from backend
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAgreement() {
+      try {
+        const res = await getAgreementDetails();
+        if (isMounted && res?.data) {
+          setAgreementData(res.data);
+          if (res.data.isAccepted && !formData.agreedTerms) {
+            onChange("agreedTerms", true);
+          }
+        }
+      } catch (err) {
+        // Fallback to local data gracefully
+      }
+    }
+    loadAgreement();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Format date as in reference screenshot: "12 October 2026"
+  const agreementDate = agreementData?.signSection?.date || new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
-  const agentName = formData.fullName || "[Agent Name]";
-  const agentCity = formData.city ? `${formData.city} City` : "[Place]";
-  const agentMobile = formData.phone || "[Mobile Number]";
+  // Dynamic merchant details from verified state
+  const agentName = agreementData?.agentDetails?.name || formData.fullName || "[Agent Name]";
+  const agentCity = agreementData?.agentDetails?.city || formData.city || "[City]";
+  const agentMobile = agreementData?.agentDetails?.mobile || formData.phone || "[Mobile Number]";
+  const documentId = agreementData?.id || "4cfb7c48-5913-44e0-8b2c-5e75b346ff14";
 
+  // Clauses list verbatim from screenshot
+  const clauses = [
+    "I hereby undertake to use Payment Gateway services with my \"user ID\" only after agreeing to the online agreement on AquaPay portal.",
+    "I hereby declare that I will use my own Credit Card/Debit Card/Net banking/UPI only.",
+    "In case of any chargeback or fraud transaction claim, AquaPay reserves the right to recover the amount.",
+    "AquaPay may suspend settlement during suspicious activities.",
+    "I agree to use services only for legal business purposes.",
+    "I will not tamper, hack, or misuse the services.",
+    "AquaPay shall not be liable for any damages arising from misuse.",
+    "I confirm all information provided by me is correct.",
+    "I do not have any criminal background.",
+    "This declaration is made voluntarily and knowingly."
+  ];
+
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(prev + 15, 145));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => Math.max(prev - 15, 75));
+  };
+
+  const handleFit = () => {
+    setZoomLevel(100);
+    setRotation(0);
+  };
+
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  // Pure Agreement PDF generator (only agreement content, never page layout)
+  const downloadAgreementPdf = () => {
+    try {
+      toast.loading("Generating AquaPay Agent Agreement PDF...", { id: "pdf-gen" });
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      const contentWidth = pageWidth - 2 * margin;
+
+      // Title: Bold, Underlined
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      const title = "AquaPay Agent Agreement";
+      const titleWidth = doc.getTextWidth(title);
+      const titleX = (pageWidth - titleWidth) / 2;
+      let y = 24;
+      doc.text(title, titleX, y);
+      doc.setDrawColor(30, 30, 30);
+      doc.setLineWidth(0.4);
+      doc.line(titleX, y + 1.5, titleX + titleWidth, y + 1.5);
+
+      y += 12;
+
+      // Preamble
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 30);
+
+      const p1 = `This Agent Agreement ("Agreement") is made on this ${agreementDate} by and between:`;
+      const splitP1 = doc.splitTextToSize(p1, contentWidth);
+      doc.text(splitP1, margin, y);
+      y += splitP1.length * 5.5 + 2.5;
+
+      const p2 = `AquaPay, a company incorporated under the Companies Act, 2013, hereinafter referred to as the "Company".`;
+      const splitP2 = doc.splitTextToSize(p2, contentWidth);
+      doc.text(splitP2, margin, y);
+      y += splitP2.length * 5.5 + 2.5;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("AND", margin, y);
+      y += 6.5;
+
+      doc.setFont("helvetica", "normal");
+      const p3 = `${agentName}, residing at ${agentCity}, hereinafter referred to as the "Agent"`;
+      const splitP3 = doc.splitTextToSize(p3, contentWidth);
+      doc.text(splitP3, margin, y);
+      y += splitP3.length * 5.5 + 5;
+
+      // Clauses 1 to 10
+      clauses.forEach((clause, index) => {
+        const numText = `${index + 1}.  `;
+        const numWidth = doc.getTextWidth(numText);
+        const clauseLines = doc.splitTextToSize(clause, contentWidth - numWidth);
+
+        doc.text(numText, margin, y);
+        doc.text(clauseLines, margin + numWidth, y);
+        y += clauseLines.length * 5.2 + 3.2;
+      });
+
+      y += 4;
+      // Divider Line
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 8;
+
+      // Signature Block
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text(`Date: ${agreementDate}`, margin, y);
+      y += 5.5;
+      doc.text(`Place: ${agentCity}`, margin, y);
+      y += 5.5;
+      doc.text(`Signature Name: ${agentName}`, margin, y);
+      y += 5.5;
+      doc.text(`Mobile Number: ${agentMobile}`, margin, y);
+      y += 11;
+
+      // Disclaimer
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 100, 100);
+      const disclaimer = "This is a system generated document. No physical signature required.";
+      const discWidth = doc.getTextWidth(disclaimer);
+      doc.text(disclaimer, (pageWidth - discWidth) / 2, y);
+
+      // Save file as PDF
+      doc.save(`AquaPay_Agent_Agreement_${documentId.slice(0, 8)}.pdf`);
+      toast.success("AquaPay Agent Agreement PDF downloaded successfully!", { id: "pdf-gen" });
+    } catch (err) {
+      toast.error("Failed to generate PDF. Please try again.", { id: "pdf-gen" });
+    }
+  };
+
+  // Print only the agreement document
   const handlePrint = () => {
     window.print();
   };
 
-  const handleDownload = () => {
-    toast.success("Downloading AquaPay Agent Agreement (PDF)...");
-  };
-
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Step Header */}
-      <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-bold text-slate-900">AquaPay Agent Agreement</h3>
-          <p className="text-xs text-slate-500">
-            Review and digitally execute your formal Merchant & Agent Master Agreement.
-          </p>
-        </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
-          Version 1.0 (Official)
-        </span>
-      </div>
+    <div className="w-full">
+      {/* Title above viewer */}
+      <h3 className="text-xs sm:text-sm font-semibold text-slate-800 mb-2">
+        AquaPay Agent Agreement
+      </h3>
 
-      {/* Embedded Sleek PDF Document Viewer */}
-      <div className="rounded-2xl border border-slate-300 shadow-md overflow-hidden bg-slate-700">
+      {/* PDF Viewer Container */}
+      <div className="rounded-lg overflow-hidden border border-slate-300 shadow-sm bg-[#525659]">
         
-        {/* PDF Viewer Dark Toolbar */}
-        <div className="bg-[#323639] text-slate-200 px-4 py-2.5 flex items-center justify-between text-xs select-none">
-          {/* Left: Menu & Hash Title */}
-          <div className="flex items-center space-x-3">
-            <button
-              type="button"
-              className="text-slate-300 hover:text-white p-1 rounded hover:bg-white/10 transition cursor-pointer"
+        {/* PDF Top Toolbar */}
+        <div className="bg-[#323639] text-white px-3 sm:px-4 py-2 flex items-center justify-between text-xs select-none">
+          {/* Left: Menu & Document ID */}
+          <div className="flex items-center space-x-3 overflow-hidden">
+            <button 
+              type="button" 
+              className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
               title="Menu"
             >
-              <Menu size={16} />
+              <Menu className="w-4 h-4" />
             </button>
-            <span className="font-mono text-[11px] text-slate-300 truncate max-w-[180px] sm:max-w-[280px]">
-              4cfb7c48-5913-44e0-8b2c-5e75b346ff14
+            <span className="font-mono text-slate-300 text-[11px] truncate max-w-[140px] sm:max-w-[260px]">
+              {documentId}
             </span>
           </div>
 
-          {/* Middle: Page & Zoom Controls */}
-          <div className="flex items-center space-x-2">
-            <span className="bg-black/30 px-2 py-0.5 rounded text-[11px] font-mono text-slate-300">
-              1 / 1
-            </span>
-            <div className="h-4 w-px bg-slate-600 hidden sm:block"></div>
+          {/* Center: Page & Zoom Controls */}
+          <div className="flex items-center space-x-2 sm:space-x-3 text-slate-300">
+            <span className="text-[11px] font-medium px-1">1 / 1</span>
             
-            <div className="hidden sm:flex items-center space-x-1">
-              <button
-                type="button"
-                onClick={() => setZoomLevel((z) => Math.max(75, z - 10))}
-                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
+            <div className="h-3.5 w-px bg-slate-600 hidden sm:block" />
+
+            <div className="flex items-center space-x-1">
+              <button 
+                type="button" 
+                onClick={handleZoomOut}
+                className="p-1 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
                 title="Zoom Out"
               >
-                <ZoomOut size={14} />
+                <Minus className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[11px] font-mono w-12 text-center text-slate-300">
+              <span className="text-[11px] font-mono px-1 w-10 text-center">
                 {zoomLevel}%
               </span>
-              <button
-                type="button"
-                onClick={() => setZoomLevel((z) => Math.min(130, z + 10))}
-                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
+              <button 
+                type="button" 
+                onClick={handleZoomIn}
+                className="p-1 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
                 title="Zoom In"
               >
-                <ZoomIn size={14} />
+                <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
+
+            <div className="h-3.5 w-px bg-slate-600 hidden sm:block" />
+
+            <button 
+              type="button" 
+              onClick={handleFit}
+              className="p-1 hover:text-white hover:bg-white/10 rounded transition cursor-pointer hidden sm:inline-flex"
+              title="Fit to Page"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+
+            <button 
+              type="button" 
+              onClick={handleRotate}
+              className="p-1 hover:text-white hover:bg-white/10 rounded transition cursor-pointer hidden sm:inline-flex"
+              title="Rotate"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          {/* Right: Actions (Rotate, Download, Print) */}
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
-              title="Download Agreement"
+          {/* Right: Actions */}
+          <div className="flex items-center space-x-1 sm:space-x-2 text-slate-300">
+            <button 
+              type="button" 
+              onClick={downloadAgreementPdf}
+              className="p-1 hover:text-white hover:bg-white/10 rounded transition cursor-pointer hidden sm:inline-flex"
+              title="Save to Drive"
             >
-              <Download size={15} />
+              <HardDrive className="w-3.5 h-3.5" />
             </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
-              title="Print Document"
+
+            <button 
+              type="button" 
+              onClick={downloadAgreementPdf}
+              className="p-1 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
+              title="Download Agreement PDF"
             >
-              <Printer size={15} />
+              <Download className="w-3.5 h-3.5" />
+            </button>
+
+            <button 
+              type="button" 
+              onClick={handlePrint}
+              className="p-1 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
+              title="Print"
+            >
+              <Printer className="w-3.5 h-3.5" />
+            </button>
+
+            <button 
+              type="button" 
+              className="p-1 hover:text-white hover:bg-white/10 rounded transition cursor-pointer"
+              title="More options"
+            >
+              <MoreVertical className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* PDF Canvas Viewport */}
-        <div className="bg-[#525659] p-4 sm:p-8 md:p-10 overflow-x-auto min-h-[560px] flex justify-center items-start">
-          
-          {/* Authentic A4 Document Page */}
+        {/* PDF Viewer Body with Vertical Scroll (Clean Block Layout - No Cutoffs) */}
+        <div 
+          ref={docContainerRef}
+          className="p-4 sm:p-8 max-h-[620px] overflow-y-auto overflow-x-auto bg-[#525659] block"
+        >
+          {/* Centered White Document Sheet with Natural Height Flow */}
           <div 
-            style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
-            className="w-full max-w-[740px] bg-white text-slate-900 shadow-2xl p-8 sm:p-14 md:p-16 transition-transform duration-200 font-sans"
+            id="agreement-printable-doc"
+            style={{
+              maxWidth: `${(42 * zoomLevel) / 100}rem`,
+              transform: rotation ? `rotate(${rotation}deg)` : undefined,
+              transition: "max-width 0.15s ease-out, transform 0.2s ease-out",
+            }}
+            className="w-full mx-auto bg-white shadow-2xl p-8 sm:p-14 text-slate-900 font-sans leading-relaxed text-xs sm:text-sm select-text my-2"
           >
-            {/* Agreement Document Title */}
-            <div className="text-center mb-8">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 underline underline-offset-4 decoration-1">
+            {/* Document Title */}
+            <div className="text-center mb-6">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight inline-block underline underline-offset-4 decoration-2">
                 AquaPay Agent Agreement
-              </h1>
+              </h2>
             </div>
 
-            {/* Intro Parties Clause */}
-            <div className="space-y-4 text-[13px] sm:text-sm text-slate-800 leading-relaxed mb-6">
+            {/* Preamble */}
+            <div className="space-y-4 mb-6 text-slate-900 leading-normal">
               <p>
-                This Agent Agreement (<strong>"Agreement"</strong>) is made on this{" "}
-                <span className="font-semibold underline">{currentDate}</span> by and between:
+                This Agent Agreement (&quot;Agreement&quot;) is made on this <strong>{agreementDate}</strong> by and between:
+              </p>
+              
+              <p>
+                <strong>AquaPay</strong>, a company incorporated under the Companies Act, 2013, hereinafter referred to as the &quot;Company&quot;.
               </p>
 
-              <p>
-                <strong>AquaPay</strong>, a company incorporated under the Companies Act, 2013, hereinafter referred to as the <strong>"Company"</strong>.
-              </p>
-
-              <p className="font-bold tracking-wider text-xs uppercase text-slate-600">
+              <p className="font-bold tracking-wide">
                 AND
               </p>
 
               <p>
-                <strong className="underline">{agentName}</strong>, residing at{" "}
-                <span className="underline">{agentCity}</span>, hereinafter referred to as the <strong>"Agent"</strong>
+                <strong>{agentName}</strong>, residing at {agentCity}, hereinafter referred to as the &quot;Agent&quot;
               </p>
             </div>
 
-            {/* 10 Clauses List */}
-            <ol className="space-y-3.5 text-[12.5px] sm:text-[13.5px] text-slate-800 leading-relaxed list-none mb-10 pl-0">
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">1.</span>
-                <span>
-                  I hereby undertake to use Payment Gateway services with my "user ID" only after agreeing to the online agreement on AquaPay portal.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">2.</span>
-                <span>
-                  I hereby declare that I will use my own Credit Card/Debit Card/Net banking/UPI only.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">3.</span>
-                <span>
-                  In case of any chargeback or fraud transaction claim, AquaPay reserves the right to recover the amount.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">4.</span>
-                <span>
-                  AquaPay may suspend settlement during suspicious activities.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">5.</span>
-                <span>
-                  I agree to use services only for legal business purposes.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">6.</span>
-                <span>
-                  I will not tamper, hack, or misuse the services.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">7.</span>
-                <span>
-                  AquaPay shall not be liable for any damages arising from misuse.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">8.</span>
-                <span>
-                  I confirm all information provided by me is correct.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">9.</span>
-                <span>
-                  I do not have any criminal background.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="font-bold shrink-0">10.</span>
-                <span>
-                  This declaration is made voluntarily and knowingly.
-                </span>
-              </li>
-            </ol>
-
-            {/* Signature Block Separator Line */}
-            <div className="border-t border-slate-900 my-8"></div>
-
-            {/* Signature Metadata */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 text-xs text-slate-800 font-medium mb-12">
-              <p>
-                <span className="text-slate-500">Date:</span> {currentDate}
-              </p>
-              <p>
-                <span className="text-slate-500">Place:</span> {agentCity}
-              </p>
-              <p>
-                <span className="text-slate-500">Signature Name:</span> <strong>{agentName}</strong>
-              </p>
-              <p>
-                <span className="text-slate-500">Mobile Number:</span> {agentMobile}
-              </p>
+            {/* Numbered Clauses 1 to 10 */}
+            <div className="space-y-3.5 mb-8 text-slate-900 leading-normal">
+              {clauses.map((clause, idx) => (
+                <div key={idx} className="flex items-start">
+                  <span className="w-6 shrink-0 font-normal">{idx + 1}.</span>
+                  <p className="flex-1">{clause}</p>
+                </div>
+              ))}
             </div>
 
-            {/* System Generated Stamp */}
-            <div className="text-center pt-4 border-t border-dashed border-slate-300">
-              <p className="text-[11px] text-slate-500 italic">
+            {/* Divider Line */}
+            <hr className="border-t border-slate-400 my-6" />
+
+            {/* Signature Block */}
+            <div className="space-y-1.5 text-slate-900 font-medium text-xs sm:text-sm leading-relaxed mb-8">
+              <p>Date: {agreementDate}</p>
+              <p>Place: {agentCity}</p>
+              <p>Signature Name: {agentName}</p>
+              <p>Mobile Number: {agentMobile}</p>
+            </div>
+
+            {/* Disclaimer */}
+            <div className="text-center pt-2">
+              <p className="text-xs text-slate-500 font-normal">
                 This is a system generated document. No physical signature required.
               </p>
             </div>
@@ -247,25 +381,72 @@ export function Step6Agreements({ formData, onChange }) {
         </div>
       </div>
 
-      {/* Digital Acceptance Checkbox Section */}
-      <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-5 space-y-3">
-        <label className="flex items-start space-x-3 cursor-pointer">
+      {/* Acceptance Checkbox & Controls Below Viewer */}
+      <div className="mt-4 space-y-2">
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
           <input
             type="checkbox"
-            checked={formData.agreedTerms}
+            checked={Boolean(formData.agreedTerms)}
             onChange={(e) => onChange("agreedTerms", e.target.checked)}
-            className="mt-1 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 bg-white cursor-pointer accent-blue-600"
+            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
           />
-          <div className="text-xs text-slate-800">
-            <span className="font-bold text-slate-900">
-              I have read, understood, and accept the AquaPay Agent Agreement in its entirety.
-            </span>
-            <p className="text-slate-600 mt-0.5">
-              By checking this box, I authorize electronic stamping and execution of this contract under the Information Technology Act.
-            </p>
-          </div>
+          <span className="text-xs sm:text-sm text-slate-800 font-normal">
+            I agree to all terms and conditions
+          </span>
         </label>
+
+        <div>
+          <button
+            type="button"
+            onClick={downloadAgreementPdf}
+            className="text-xs text-blue-600 hover:text-blue-800 underline font-normal cursor-pointer"
+          >
+            Download Agreement
+          </button>
+        </div>
+
+        <hr className="border-t border-slate-200 mt-4 mb-4" />
+
+        {/* Proceed & Continue Button */}
+        <div>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!formData.agreedTerms || isSavingStep}
+            className={`px-5 py-2.5 rounded-md text-xs sm:text-sm font-medium transition cursor-pointer ${
+              formData.agreedTerms && !isSavingStep
+                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+                : "bg-[#f4f4f4] text-[#b0b0b0] cursor-not-allowed border border-slate-200"
+            }`}
+          >
+            {isSavingStep ? "Processing..." : "Proceed & Continue"}
+          </button>
+        </div>
       </div>
+
+      {/* Print isolation styles: When printing, prints ONLY the document sheet, hides entire UI */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #agreement-printable-doc,
+          #agreement-printable-doc * {
+            visibility: visible !important;
+          }
+          #agreement-printable-doc {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 15mm 20mm !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

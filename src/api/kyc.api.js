@@ -28,6 +28,17 @@ export const initiateAadhaarVerification = async (consent = true) => {
   return response.data;
 };
 
+export const getAadhaarVerificationStatus = async (sessionId) => {
+  const params = sessionId ? { sessionId } : {};
+  const response = await api.get("/kyc/digilocker/aadhaar/status", { params });
+  return response.data;
+};
+
+export const verifyPanDetails = async ({ panNumber, consent = true }) => {
+  const response = await api.post("/kyc/pan/verify", { panNumber, consent });
+  return response.data;
+};
+
 export const initiatePanVerification = async (consent = true) => {
   const response = await api.post("/kyc/digilocker/pan/initiate", { consent });
   return response.data;

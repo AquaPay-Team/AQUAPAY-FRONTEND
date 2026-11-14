@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
         localStorage.getItem("adminUser") || localStorage.getItem("user") || "null"
       );
       if (token && isAdminUser(user)) {
-        navigate("/admin", { replace: true });
+        navigate("/admin/dashboard", { replace: true });
       }
     } catch {
       // ignore
@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
         `Welcome back, ${user?.name || "Administrator"}! Signed in successfully.`
       );
 
-      const redirectPath = location.state?.from?.pathname || "/admin";
+      const redirectPath = location.state?.from?.pathname || "/admin/dashboard";
       navigate(redirectPath, { replace: true });
     } catch (err) {
       console.error("Admin login error:", err);

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAdminDashboard } from '../../features/admin/hooks/useAdminDashboard';
 import { AdminSidebar } from '../../features/admin/components/AdminSidebar';
 import { AdminHeader } from '../../features/admin/components/AdminHeader';
@@ -50,6 +51,20 @@ export default function AdminDashboardPage() {
     handleUpdateMemberDetails,
     handleExportCSV,
   } = useAdminDashboard();
+
+  const location = useLocation();
+
+  // Sync route with active dashboard tab & modals
+  useEffect(() => {
+    if (location.pathname.includes('/admin/users/create')) {
+      setActiveTab('all-users');
+      setAddAgentModalOpen(true);
+    } else if (location.pathname.includes('/admin/users')) {
+      setActiveTab('all-users');
+    } else if (location.pathname.includes('/admin/dashboard')) {
+      setActiveTab('dashboard');
+    }
+  }, [location.pathname, setActiveTab, setAddAgentModalOpen]);
 
   return (
     <div className="min-h-screen bg-slate-100 flex font-sans text-slate-800 antialiased">

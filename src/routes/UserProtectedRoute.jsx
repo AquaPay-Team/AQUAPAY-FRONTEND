@@ -29,7 +29,7 @@ export function UserProtectedRoute({ requireKyc = true }) {
 
   // 2. Admin attempting to access User routes -> Redirect to Admin Panel
   if (isAdminRole(user)) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   // 3. User does not have an authorized Normal User role

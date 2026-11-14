@@ -1,7 +1,10 @@
 import React from "react";
-import { User, Calendar, Smartphone, Mail, MapPin, Briefcase } from "lucide-react";
+import { User, Calendar, Smartphone, Mail, MapPin, Briefcase, AlertCircle } from "lucide-react";
 
 export function Step1BasicDetails({ formData, onChange, errors = {} }) {
+  // Today's date in YYYY-MM-DD for restricting future dates in HTML5 datepicker
+  const maxDate = new Date().toISOString().split("T")[0];
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-3">
@@ -32,7 +35,10 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             />
           </div>
           {errors.fullName && (
-            <p className="text-xs text-rose-500 mt-1 font-medium">{errors.fullName}</p>
+            <p className="text-xs text-rose-500 mt-1 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.fullName}</span>
+            </p>
           )}
         </div>
 
@@ -45,6 +51,7 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             <Calendar className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
             <input
               type="date"
+              max={maxDate}
               value={formData.dob || ""}
               onChange={(e) => onChange("dob", e.target.value)}
               className={`w-full bg-white border rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-slate-900 focus:outline-none transition ${
@@ -55,7 +62,10 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             />
           </div>
           {errors.dob && (
-            <p className="text-xs text-rose-500 mt-1 font-medium">{errors.dob}</p>
+            <p className="text-xs text-rose-500 mt-1.5 font-medium flex items-center gap-1.5 bg-rose-50/50 p-1.5 rounded-lg border border-rose-100">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="text-rose-700">{errors.dob}</span>
+            </p>
           )}
         </div>
 
@@ -80,7 +90,10 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             />
           </div>
           {errors.phone && (
-            <p className="text-xs text-rose-500 mt-1 font-medium">{errors.phone}</p>
+            <p className="text-xs text-rose-500 mt-1 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.phone}</span>
+            </p>
           )}
         </div>
 
@@ -104,7 +117,10 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             />
           </div>
           {errors.email && (
-            <p className="text-xs text-rose-500 mt-1 font-medium">{errors.email}</p>
+            <p className="text-xs text-rose-500 mt-1 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.email}</span>
+            </p>
           )}
         </div>
       </div>
@@ -120,7 +136,11 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             <select
               value={formData.businessType || "Retail Merchant"}
               onChange={(e) => onChange("businessType", e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition"
+              className={`w-full bg-white border rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-slate-900 focus:outline-none transition ${
+                errors.businessType
+                  ? "border-rose-400 bg-rose-50/20 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                  : "border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+              }`}
             >
               <option value="Retail Merchant">Retail Merchant / Kirana Store</option>
               <option value="Wholesaler">Wholesaler / Distributor</option>
@@ -130,6 +150,12 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
               <option value="Partnership">Partnership / LLP</option>
             </select>
           </div>
+          {errors.businessType && (
+            <p className="text-xs text-rose-500 mt-1 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.businessType}</span>
+            </p>
+          )}
         </div>
 
         {/* Shop Address */}
@@ -152,7 +178,10 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             />
           </div>
           {errors.shopAddress && (
-            <p className="text-xs text-rose-500 mt-1 font-medium">{errors.shopAddress}</p>
+            <p className="text-xs text-rose-500 mt-1 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.shopAddress}</span>
+            </p>
           )}
         </div>
       </div>
@@ -175,7 +204,10 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             }`}
           />
           {errors.city && (
-            <p className="text-xs text-rose-500 mt-1 font-medium">{errors.city}</p>
+            <p className="text-xs text-rose-500 mt-1 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.city}</span>
+            </p>
           )}
         </div>
 
@@ -196,7 +228,10 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             }`}
           />
           {errors.state && (
-            <p className="text-xs text-rose-500 mt-1 font-medium">{errors.state}</p>
+            <p className="text-xs text-rose-500 mt-1 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.state}</span>
+            </p>
           )}
         </div>
 
@@ -218,7 +253,10 @@ export function Step1BasicDetails({ formData, onChange, errors = {} }) {
             }`}
           />
           {errors.pincode && (
-            <p className="text-xs text-rose-500 mt-1 font-medium">{errors.pincode}</p>
+            <p className="text-xs text-rose-500 mt-1 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{errors.pincode}</span>
+            </p>
           )}
         </div>
       </div>

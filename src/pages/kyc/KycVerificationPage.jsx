@@ -167,6 +167,22 @@ export function KycVerificationPage() {
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+    // Instant inline validation for Date of Birth
+    if (field === "dob") {
+      if (!value) {
+        setStep1Errors((prev) => ({ ...prev, dob: "Date of Birth is required." }));
+        return;
+      }
+      const selectedDate = new Date(value);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (selectedDate > today) {
+        setStep1Errors((prev) => ({ ...prev, dob: "Date of Birth cannot be in the future." }));
+        return;
+      }
+    }
+
     if (step1Errors[field]) {
       setStep1Errors((prev) => {
         const updated = { ...prev };
@@ -186,6 +202,13 @@ export function KycVerificationPage() {
 
     if (!formData.dob) {
       errors.dob = "Date of Birth is required.";
+    } else {
+      const selectedDate = new Date(formData.dob);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (selectedDate > today) {
+        errors.dob = "Date of Birth cannot be in the future.";
+      }
     }
 
     const cleanPhone = String(formData.phone || "").replace(/\D/g, "");
@@ -200,7 +223,7 @@ export function KycVerificationPage() {
 
     const shopAddr = (formData.shopAddress || formData.address || "").trim();
     if (!shopAddr || shopAddr.length < 3) {
-      errors.shopAddress = "Commercial Address is required.";
+      errors.shopAddress = "Operating Commercial Address is required.";
     }
 
     if (!formData.city || formData.city.trim().length < 2) {
@@ -288,7 +311,13 @@ export function KycVerificationPage() {
     if (currentStep === 1) {
       const isValid = validateStep1();
       if (!isValid) {
-        toast.error("Please fill in all required fields in Step 1 before proceeding.");
+        // If Date of Birth is specifically in the future, display exact message
+        const isFutureDob = formData.dob && new Date(formData.dob) > new Date();
+        if (isFutureDob || step1Errors.dob === "Date of Birth cannot be in the future.") {
+          toast.error("Date of Birth cannot be in the future. Please correct it to proceed.");
+        } else {
+          toast.error("Please fill in all required fields accurately before proceeding.");
+        }
         return;
       }
 
@@ -308,6 +337,13 @@ export function KycVerificationPage() {
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (err) {
         const parsed = parseApiError(err);
+
+        // Populate field-specific inline errors from backend response
+        if (parsed.fieldErrors && Object.keys(parsed.fieldErrors).length > 0) {
+          setStep1Errors((prev) => ({ ...prev, ...parsed.fieldErrors }));
+        }
+
+        // Display specific error message instead of generic maintenance toast
         toast.error(parsed.message || "Failed to save Basic Details. Please verify your data.");
         return;
       } finally {

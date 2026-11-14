@@ -207,6 +207,43 @@ export function KycVerificationPage() {
     return () => clearInterval(interval);
   }, [otpSent, otpTimer]);
 
+  // Step 2: Check for existing active or verified Aadhaar session on mount / step change
+  useEffect(() => {
+    if (currentStep === 2 && !aadhaarVerified) {
+      async function checkActiveSession() {
+        try {
+          const statusRes = await getAadhaarVerificationStatus();
+          const statusUpper = String(statusRes?.data?.status || "").toUpperCase();
+          const sessId = statusRes?.data?.sessionId;
+          if (sessId) setDigilockerSessionId(sessId);
+
+          if (statusUpper === "VERIFIED") {
+            setAadhaarVerified(true);
+            setCompletedSteps((prev) => Array.from(new Set([...prev, 2])));
+            const verifiedName = statusRes.data?.verifiedName;
+            const maskedId = statusRes.data?.maskedIdentifier;
+            setAadhaarVerifiedData({ verifiedName, maskedIdentifier: maskedId });
+            if (verifiedName) {
+              setFormData((prev) => ({
+                ...prev,
+                fullName: verifiedName,
+                panName: verifiedName.toUpperCase(),
+              }));
+            }
+          } else if (
+            statusUpper === "PENDING" ||
+            statusRes?.data?.stage === "authorization_pending"
+          ) {
+            setOtpSent(true);
+          }
+        } catch {
+          // Ignore lookup errors
+        }
+      }
+      checkActiveSession();
+    }
+  }, [currentStep, aadhaarVerified]);
+
   // Step 1 OTP countdown
   useEffect(() => {
     let interval = null;
@@ -413,7 +450,41 @@ export function KycVerificationPage() {
       }
     } catch (err) {
       const parsed = parseApiError(err);
-      toast.error(parsed.message || "Failed to initiate UIDAI Aadhaar session. Please try again.");
+      const isAlreadyInProgress =
+        err?.response?.status === 409 ||
+        err?.response?.data?.code === "VERIFICATION_IN_PROGRESS" ||
+        parsed?.message?.toLowerCase().includes("already in progress") ||
+        parsed?.message?.toLowerCase().includes("session is already");
+
+      if (isAlreadyInProgress) {
+        // Active session already running! Transition directly to OTP entry
+        setOtpSent(true);
+        setOtpTimer(60);
+        setAadhaarVerified(false);
+        setOtpValue(["", "", "", "", "", ""]);
+        toast.info("A verification session is already active. Please enter the OTP sent to your registered mobile.");
+
+        try {
+          const statusRes = await getAadhaarVerificationStatus();
+          const sessId = statusRes?.data?.sessionId;
+          if (sessId) {
+            setDigilockerSessionId(sessId);
+          }
+          const statusUpper = String(statusRes?.data?.status || "").toUpperCase();
+          if (statusUpper === "VERIFIED") {
+            setAadhaarVerified(true);
+            const verifiedName = statusRes.data.verifiedName;
+            const maskedId = statusRes.data.maskedIdentifier;
+            setAadhaarVerifiedData({ verifiedName, maskedIdentifier: maskedId });
+            setCompletedSteps((prev) => Array.from(new Set([...prev, 2])));
+            toast.success(`Aadhaar already verified: ${verifiedName || "Verified"}`);
+          }
+        } catch {
+          // ignore
+        }
+      } else {
+        toast.error(parsed.message || "Failed to initiate UIDAI Aadhaar session. Please try again.");
+      }
     } finally {
       setIsInitiatingDigilocker(false);
     }
@@ -895,6 +966,7 @@ export function KycVerificationPage() {
                 onVerifyOtp={handleVerifyAadhaarOtp}
                 verifiedData={aadhaarVerifiedData}
                 isInitiating={isInitiatingDigilocker}
+                onResetOtp={() => setOtpSent(false)}
               />
             )}
 

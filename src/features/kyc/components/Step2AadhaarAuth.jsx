@@ -34,6 +34,7 @@ export function Step2AadhaarAuth({
   onVerifyOtp = () => {},
   verifiedData = {},
   isInitiating = false,
+  onResetOtp = null,
 }) {
   const [aadhaarError, setAadhaarError] = useState("");
   const [otpError, setOtpError] = useState("");
@@ -260,6 +261,16 @@ export function Step2AadhaarAuth({
               >
                 {otpTimer > 0 ? `Resend in ${otpTimer}s` : "Resend OTP"}
               </button>
+
+              {onResetOtp && (
+                <button
+                  type="button"
+                  onClick={onResetOtp}
+                  className="text-xs text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                >
+                  Change Aadhaar Number
+                </button>
+              )}
             </div>
 
             {/* Helpful UIDAI Link */}
@@ -319,15 +330,6 @@ export function Step2AadhaarAuth({
             </span>
           </div>
         )}
-      </div>
-
-      {/* Security & Regulatory Compliance Note */}
-      <div className="flex items-center gap-2 text-xs text-slate-500 bg-white border border-slate-200 p-3 rounded-xl">
-        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-        <span>
-          UIDAI Aadhaar Data Security: Processed in strict compliance with the Aadhaar Act, 2016 and
-          RBI Master Direction on Digital KYC.
-        </span>
       </div>
     </div>
   );

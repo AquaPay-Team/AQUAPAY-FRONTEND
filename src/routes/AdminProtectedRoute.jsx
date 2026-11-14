@@ -20,6 +20,17 @@ export function AdminProtectedRoute() {
     return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 
+  // Non-SuperAdmin accounts (e.g. Sub Admin) must complete KYC first
+  const isKycDone =
+    user?.kyc &&
+    ["approved", "completed", "verified"].includes(
+      String(user.kyc.status || "").toLowerCase()
+    );
+
+  if (user?.role_id !== 1 && !isKycDone) {
+    return <Navigate to="/kyc" replace />;
+  }
+
   return <Outlet />;
 }
 

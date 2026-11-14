@@ -107,7 +107,12 @@ export function AdminUserTable({
               ) : filteredMembers.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="text-center py-10 text-slate-400">
-                    No {getCurrentRoleTitle()} agents found in backend database matching query.
+                    <div className="max-w-md mx-auto space-y-1">
+                      <p className="font-semibold text-slate-600 text-xs">No {getCurrentRoleTitle()} agents found</p>
+                      <p className="text-[11px] text-slate-400">
+                        Accounts show agents created within their hierarchy. Click "Add New Agent" to onboard an agent.
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (

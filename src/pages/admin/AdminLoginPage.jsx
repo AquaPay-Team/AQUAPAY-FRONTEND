@@ -75,6 +75,20 @@ export default function AdminLoginPage() {
         `Welcome back, ${user?.name || "Administrator"}! Signed in successfully.`
       );
 
+      // SuperAdmin (role_id 1) has no KYC requirement.
+      // Other roles (Sub Admin, etc.) must complete KYC before accessing the portal.
+      const isKycDone =
+        user?.kyc &&
+        ["approved", "completed", "verified"].includes(
+          String(user.kyc.status || "").toLowerCase()
+        );
+
+      if (user?.role_id !== 1 && !isKycDone) {
+        toast.info("Please complete your KYC verification first.");
+        navigate("/kyc", { replace: true });
+        return;
+      }
+
       const redirectPath = location.state?.from?.pathname || "/admin";
       navigate(redirectPath, { replace: true });
     } catch (err) {

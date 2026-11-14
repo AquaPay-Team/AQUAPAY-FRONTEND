@@ -106,6 +106,34 @@ export function parseApiError(err) {
       ? errorList.join(". ")
       : backendMessage;
 
+  // Specific KYC Domain Errors
+  const KYC_ERROR_MAP = {
+    KYC_PREREQUISITE_NOT_COMPLETED: "Complete the previous KYC step first before proceeding.",
+    AADHAAR_PREREQUISITE_NOT_COMPLETED: "Complete Aadhaar verification first before PAN verification.",
+    AADHAAR_VERIFIED_NAME_UNAVAILABLE: "Verified Aadhaar details are unavailable. Please complete Aadhaar verification.",
+    AADHAAR_VERIFIED_NAME_CHANGED: "Aadhaar verified identity changed. Please restart verification.",
+    PAN_ALREADY_VERIFIED: "PAN verification is already completed.",
+    PAN_INVALID: "The PAN number entered is invalid according to Income Tax records.",
+    PAN_NOT_FOUND: "PAN could not be verified with the Income Tax Department.",
+    BANK_DETAILS_MISMATCH: "Bank account details could not be verified. Please check the account number and IFSC.",
+    INVALID_IFSC: "Invalid IFSC code. Please check and try again.",
+    BASIC_DETAILS_REQUIRED: "Save valid basic details before requesting OTP.",
+    INVALID_OR_EXPIRED_OTP: "Invalid or expired OTP. Please request a new verification code.",
+    CONSENT_REQUIRED: "Your consent is required to proceed with identity verification.",
+    KYC_CASE_NOT_FOUND: "No active KYC application found for this account.",
+    KYC_CASE_NOT_EDITABLE: "This KYC application is not available for editing.",
+  };
+
+  if (backendCode && KYC_ERROR_MAP[backendCode]) {
+    return {
+      type: "KYC_ERROR",
+      title: "KYC Verification",
+      message: specificMessage || KYC_ERROR_MAP[backendCode],
+      fieldErrors,
+      errors: errorList,
+    };
+  }
+
   // 2. Authentication Failures (401)
   if (status === 401 || backendCode === "AUTH_FAILED" || backendCode === "UNAUTHORIZED") {
     return {
@@ -154,7 +182,7 @@ export function parseApiError(err) {
         // Prioritize specific backend message or field errors if present
         message:
           specificMessage ||
-          "AquaPay banking services are undergoing routine maintenance. Please try again shortly.",
+          "The verification service is temporarily unavailable. Please try again shortly.",
         fieldErrors,
         errors: errorList,
       };

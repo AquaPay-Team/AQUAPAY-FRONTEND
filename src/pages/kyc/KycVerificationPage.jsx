@@ -24,6 +24,7 @@ import KycHeader from "../../features/kyc/components/KycHeader";
 import KycStepper from "../../features/kyc/components/KycStepper";
 import Step1BasicDetails from "../../features/kyc/components/Step1BasicDetails";
 import Step2AadhaarAuth from "../../features/kyc/components/Step2AadhaarAuth";
+import Step1OtpVerification from "../../features/kyc/components/Step1OtpVerification";
 import Step3PanVerification from "../../features/kyc/components/Step3PanVerification";
 import Step4BankDetails from "../../features/kyc/components/Step4BankDetails";
 import Step5MediaUploads from "../../features/kyc/components/Step5MediaUploads";
@@ -35,6 +36,8 @@ import KycSuccessView from "../../features/kyc/components/KycSuccessView";
 import {
   getKycStatus,
   saveBasicDetails,
+  requestBasicDetailsOtp,
+  verifyBasicDetailsOtp,
   initiateAadhaarVerification,
   getAadhaarVerificationStatus,
   verifyPanDetails,
@@ -70,10 +73,27 @@ export function KycVerificationPage() {
     storedUser?.kyc?.caseId || ""
   );
 
+  // Step 1 OTP sub-phase states
+  const [step1OtpPhase, setStep1OtpPhase] = useState(false);
+  const [step1OtpValue, setStep1OtpValue] = useState(["", "", "", "", "", ""]);
+  const [step1OtpTimer, setStep1OtpTimer] = useState(0);
+  const [isRequestingStep1Otp, setIsRequestingStep1Otp] = useState(false);
+  const [isVerifyingStep1Otp, setIsVerifyingStep1Otp] = useState(false);
+  const [step1OtpError, setStep1OtpError] = useState("");
+
+  // Step 2 (Aadhaar / DigiLocker) states
+  const [digilockerSessionId, setDigilockerSessionId] = useState(null);
+  const [digilockerSessionActive, setDigilockerSessionActive] = useState(false);
+  const [isInitiatingDigilocker, setIsInitiatingDigilocker] = useState(false);
+  const [isCheckingAadhaarStatus, setIsCheckingAadhaarStatus] = useState(false);
+  const [aadhaarVerified, setAadhaarVerified] = useState(false);
+  const [aadhaarVerifiedData, setAadhaarVerifiedData] = useState({});
+  const [aadhaarPollInterval, setAadhaarPollInterval] = useState(null);
+
+  // Legacy / other states
   const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState(["", "", "", "", "", ""]);
   const [otpTimer, setOtpTimer] = useState(30);
-  const [aadhaarVerified, setAadhaarVerified] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [panVerified, setPanVerified] = useState(false);
   const [panLoading, setPanLoading] = useState(false);
@@ -143,7 +163,8 @@ export function KycVerificationPage() {
               navigate("/admin/dashboard", { replace: true });
               return;
             }
-            toast.error("No active KYC application found for this account.");
+            // Normal user has no KYC case yet — backend will auto-create on first step save.
+            // Stay on the page; Step 1 save will trigger case creation.
             return;
           }
 
@@ -175,7 +196,7 @@ export function KycVerificationPage() {
     fetchStatus();
   }, [navigate]);
 
-  // Aadhaar OTP countdown
+  // Aadhaar OTP countdown (legacy – kept for compatibility)
   useEffect(() => {
     let interval = null;
     if (otpSent && otpTimer > 0) {
@@ -185,6 +206,66 @@ export function KycVerificationPage() {
     }
     return () => clearInterval(interval);
   }, [otpSent, otpTimer]);
+
+  // Step 1 OTP countdown
+  useEffect(() => {
+    let interval = null;
+    if (step1OtpPhase && step1OtpTimer > 0) {
+      interval = setInterval(() => setStep1OtpTimer((t) => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step1OtpPhase, step1OtpTimer]);
+
+  // Step 1: Request OTP from backend (dev mode → prints OTP to backend console)
+  const handleRequestStep1Otp = async () => {
+    setIsRequestingStep1Otp(true);
+    setStep1OtpError("");
+    try {
+      await requestBasicDetailsOtp();
+      setStep1OtpTimer(60);
+      setStep1OtpValue(["", "", "", "", "", ""]);
+      toast.success(
+        "OTP sent! In development mode the OTP is printed in the backend server console."
+      );
+    } catch (err) {
+      const parsed = parseApiError(err);
+      if (parsed.type === "RATE_LIMIT") {
+        setStep1OtpError("Please wait before requesting another OTP.");
+        toast.error("Please wait before requesting another OTP.");
+      } else {
+        toast.error(parsed.message || "Failed to request OTP. Please try again.");
+      }
+    } finally {
+      setIsRequestingStep1Otp(false);
+    }
+  };
+
+  // Step 1: Verify OTP → marks step as 'completed' in backend DB → allows Aadhaar to proceed
+  const handleVerifyStep1Otp = async () => {
+    const otp = step1OtpValue.join("");
+    if (otp.length !== 6) {
+      setStep1OtpError("Please enter all 6 digits of the OTP.");
+      return;
+    }
+    setStep1OtpError("");
+    setIsVerifyingStep1Otp(true);
+    try {
+      await verifyBasicDetailsOtp(otp);
+      setCompletedSteps((prev) => Array.from(new Set([...prev, 1])));
+      setStep1OtpPhase(false);
+      toast.success("Step 1 verified successfully! Proceeding to Aadhaar verification.");
+      setCurrentStep(2);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      const parsed = parseApiError(err);
+      setStep1OtpError(parsed.message || "Invalid or expired OTP. Please try again.");
+      toast.error(parsed.message || "Invalid or expired OTP. Please try again.");
+    } finally {
+      setIsVerifyingStep1Otp(false);
+    }
+  };
+
+
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -265,50 +346,76 @@ export function KycVerificationPage() {
   };
 
   const handleTriggerOtp = async () => {
+    const cleanAadhaar = String(formData.aadhaarNumber || "").replace(/\D/g, "");
+    if (cleanAadhaar.length !== 12) {
+      toast.error("Please enter a valid 12-digit Aadhaar number before requesting OTP.");
+      return;
+    }
+
+    setIsInitiatingDigilocker(true);
     try {
-      setOtpSent(true);
-      setOtpTimer(60);
-      setAadhaarVerified(false);
-      toast.info("Connecting to UIDAI DigiLocker verification gateway...");
+      toast.info("Connecting to UIDAI verification gateway...");
       const res = await initiateAadhaarVerification(true);
       const authUrl = res?.data?.authorizationUrl;
       const sessId = res?.data?.sessionId;
 
-      if (authUrl) {
-        toast.success("Opening DigiLocker UIDAI verification portal. UIDAI will send an official OTP to your Aadhaar-linked mobile.", { duration: 6000 });
-        // Open government DigiLocker portal where real UIDAI OTP is delivered
-        window.open(authUrl, "_blank");
+      if (sessId) {
+        setDigilockerSessionId(sessId);
+      }
 
-        // Poll for completion if sessionId returned
+      setOtpSent(true);
+      setOtpTimer(60);
+      setAadhaarVerified(false);
+      setOtpValue(["", "", "", "", "", ""]);
+
+      if (authUrl) {
+        // Open official UIDAI portal popup so UIDAI delivers OTP to the user's mobile
+        window.open(authUrl, "_blank", "width=520,height=680,location=no,status=no");
+        toast.success("UIDAI OTP dispatched! Check your Aadhaar-linked mobile for the OTP code.", { duration: 6000 });
+
+        // Auto-poll in background
         if (sessId) {
-          const pollInterval = setInterval(async () => {
+          if (aadhaarPollInterval) clearInterval(aadhaarPollInterval);
+          const interval = setInterval(async () => {
             try {
               const statusRes = await getAadhaarVerificationStatus(sessId);
-              if (statusRes?.data?.status === "verified") {
-                clearInterval(pollInterval);
+              const statusUpper = String(statusRes?.data?.status || "").toUpperCase();
+              if (statusUpper === "VERIFIED") {
+                clearInterval(interval);
+                setAadhaarPollInterval(null);
                 setAadhaarVerified(true);
-                if (statusRes.data.verifiedName) {
+                const verifiedName = statusRes.data.verifiedName;
+                const maskedId = statusRes.data.maskedIdentifier;
+                setAadhaarVerifiedData({ verifiedName, maskedIdentifier: maskedId });
+                if (verifiedName) {
                   setFormData((prev) => ({
                     ...prev,
-                    fullName: statusRes.data.verifiedName,
-                    panName: statusRes.data.verifiedName.toUpperCase(),
+                    fullName: verifiedName,
+                    panName: verifiedName.toUpperCase(),
                   }));
                 }
-                toast.success(`Aadhaar e-KYC authenticated with UIDAI: ${statusRes.data.verifiedName || "Verified"}`);
+                setCompletedSteps((prev) => Array.from(new Set([...prev, 2])));
+                toast.success(`Aadhaar e-KYC verified with UIDAI: ${verifiedName || "Verified"}`);
               }
             } catch {
-              // continue polling
+              // Silently poll
             }
           }, 3000);
 
-          setTimeout(() => clearInterval(pollInterval), 180000);
+          setAadhaarPollInterval(interval);
+          setTimeout(() => {
+            clearInterval(interval);
+            setAadhaarPollInterval(null);
+          }, 180000);
         }
       } else {
-        toast.info("Aadhaar OTP requested. Please enter the OTP received on your Aadhaar-registered mobile.");
+        toast.info("Aadhaar OTP requested. Please enter the OTP received on your mobile.");
       }
     } catch (err) {
       const parsed = parseApiError(err);
-      toast.error(parsed.message || "Failed to initiate DigiLocker Aadhaar session.");
+      toast.error(parsed.message || "Failed to initiate UIDAI Aadhaar session. Please try again.");
+    } finally {
+      setIsInitiatingDigilocker(false);
     }
   };
 
@@ -318,19 +425,60 @@ export function KycVerificationPage() {
       toast.error("Please enter the complete 6-digit Aadhaar OTP.");
       return;
     }
+
     setIsVerifyingOtp(true);
     try {
-      const statusRes = await getAadhaarVerificationStatus();
-      if (statusRes?.data?.status === "verified") {
+      // 1. Check Aadhaar session status from backend (IDTO/UIDAI callback completion)
+      const sessId = digilockerSessionId;
+      const statusRes = await getAadhaarVerificationStatus(sessId || undefined);
+      const statusUpper = String(statusRes?.data?.status || "").toUpperCase();
+
+      if (statusUpper === "VERIFIED") {
+        if (aadhaarPollInterval) {
+          clearInterval(aadhaarPollInterval);
+          setAadhaarPollInterval(null);
+        }
         setAadhaarVerified(true);
-        toast.success("Aadhaar e-KYC authenticated successfully with UIDAI.");
-      } else {
-        setAadhaarVerified(true);
-        toast.success("Aadhaar authenticated successfully.");
+        const verifiedName = statusRes.data.verifiedName;
+        const maskedId = statusRes.data.maskedIdentifier;
+        setAadhaarVerifiedData({ verifiedName, maskedIdentifier: maskedId });
+        if (verifiedName) {
+          setFormData((prev) => ({
+            ...prev,
+            fullName: verifiedName,
+            panName: verifiedName.toUpperCase(),
+          }));
+        }
+        setCompletedSteps((prev) => Array.from(new Set([...prev, 2])));
+        toast.success(`Aadhaar e-KYC verified successfully: ${verifiedName || "Verified"}`);
+        // Advance to Step 3 (PAN Verification)
+        setCurrentStep(3);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
       }
-    } catch {
-      setAadhaarVerified(true);
-      toast.success("Aadhaar authenticated successfully.");
+
+      // 2. Also check if KYC case marked step 2 as completed in backend DB
+      const kycRes = await getKycStatus();
+      if (kycRes?.data?.completedSteps?.includes(2)) {
+        if (aadhaarPollInterval) {
+          clearInterval(aadhaarPollInterval);
+          setAadhaarPollInterval(null);
+        }
+        setAadhaarVerified(true);
+        setCompletedSteps((prev) => Array.from(new Set([...prev, 2])));
+        toast.success("Aadhaar e-KYC authenticated successfully. Proceeding to Step 3.");
+        setCurrentStep(3);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+
+      // If neither, inform user
+      toast.info(
+        "Aadhaar authentication is still in progress. Please ensure the OTP is submitted in the UIDAI verification window, then click Verify again."
+      );
+    } catch (err) {
+      const parsed = parseApiError(err);
+      toast.error(parsed.message || "Failed to verify Aadhaar OTP. Please try again.");
     } finally {
       setIsVerifyingOtp(false);
     }
@@ -402,9 +550,23 @@ export function KycVerificationPage() {
         });
 
         setCompletedSteps((prev) => Array.from(new Set([...prev, 1])));
-        toast.success("Step 1 (Basic Details) saved successfully.");
-        setCurrentStep(2);
+        toast.success("Basic details saved. Please verify your identity with the OTP below.");
+        // ── Show Step 1 OTP sub-phase instead of jumping straight to Step 2 ──
+        setStep1OtpPhase(true);
+        setStep1OtpValue(["", "", "", "", "", ""]);
+        setStep1OtpError("");
         window.scrollTo({ top: 0, behavior: "smooth" });
+        // Auto-request OTP immediately after save
+        try {
+          await requestBasicDetailsOtp();
+          setStep1OtpTimer(60);
+          toast.info("OTP requested. Check the backend console for the code (development mode).");
+        } catch (otpErr) {
+          const parsedOtp = parseApiError(otpErr);
+          if (parsedOtp.type !== "RATE_LIMIT") {
+            toast.error(parsedOtp.message || "Failed to auto-request OTP. Click 'Resend OTP' to try again.");
+          }
+        }
       } catch (err) {
         const parsed = parseApiError(err);
 
@@ -426,24 +588,19 @@ export function KycVerificationPage() {
     if (currentStep === 2) {
       const cleanAadhaar = String(formData.aadhaarNumber || "").replace(/\D/g, "");
       if (cleanAadhaar.length !== 12) {
-        toast.error("Please enter a valid 12-digit Aadhaar number (e.g. 9999 9999 9999).");
+        toast.error("Please enter a valid 12-digit Aadhaar number.");
         return;
       }
       if (!otpSent) {
-        toast.error("Please click 'Send OTP' to receive your UIDAI verification code.");
+        toast.error("Please click 'Send OTP' to request your Aadhaar verification code.");
         return;
       }
       if (!aadhaarVerified) {
-        const otp = otpValue.join("");
-        if (otp.length === 6) {
-          setAadhaarVerified(true);
-        } else {
-          toast.error("Please enter the 6-digit Aadhaar OTP and click 'Verify Aadhaar OTP'.");
-          return;
-        }
+        toast.error("Please enter the 6-digit OTP and click 'Verify Aadhaar OTP' before proceeding.");
+        return;
       }
       setCompletedSteps((prev) => Array.from(new Set([...prev, 2])));
-      toast.success("Aadhaar e-KYC verified successfully.");
+      toast.success("Aadhaar e-KYC verified. Proceeding to PAN verification.");
       setCurrentStep(3);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -556,11 +713,12 @@ export function KycVerificationPage() {
       } catch (err) {
         const parsed = parseApiError(err);
         if (parsed.type === "NOT_FOUND" || err.response?.status === 404) {
-          toast.error("KYC application not found. Admin accounts are exempt from KYC.");
           if (storedUser && isAdminRole(storedUser)) {
+            toast.info("Admin accounts are exempt from KYC. Redirecting to Admin Dashboard.");
             navigate("/admin/dashboard", { replace: true });
             return;
           }
+          toast.error("KYC application not found. Please complete Step 1 first or contact support.");
         } else {
           toast.error(parsed.message || "Failed to submit agreement.");
         }
@@ -697,11 +855,29 @@ export function KycVerificationPage() {
 
           {/* Step Form Body */}
           <div className={currentStep === 5 || currentStep === 6 ? "p-4 sm:p-6 bg-white" : "p-6 md:p-8 min-h-[380px] bg-white"}>
-            {currentStep === 1 && (
+            {currentStep === 1 && !step1OtpPhase && (
               <Step1BasicDetails
                 formData={formData}
                 onChange={handleChange}
                 errors={step1Errors}
+              />
+            )}
+
+            {currentStep === 1 && step1OtpPhase && (
+              <Step1OtpVerification
+                otpValue={step1OtpValue}
+                onOtpChange={setStep1OtpValue}
+                otpTimer={step1OtpTimer}
+                onRequestOtp={handleRequestStep1Otp}
+                isRequesting={isRequestingStep1Otp}
+                onVerify={handleVerifyStep1Otp}
+                isVerifying={isVerifyingStep1Otp}
+                error={step1OtpError}
+                onBack={() => {
+                  setStep1OtpPhase(false);
+                  setStep1OtpError("");
+                  setStep1OtpValue(["", "", "", "", "", ""]);
+                }}
               />
             )}
 
@@ -717,6 +893,8 @@ export function KycVerificationPage() {
                 aadhaarVerified={aadhaarVerified}
                 isVerifyingOtp={isVerifyingOtp}
                 onVerifyOtp={handleVerifyAadhaarOtp}
+                verifiedData={aadhaarVerifiedData}
+                isInitiating={isInitiatingDigilocker}
               />
             )}
 
@@ -763,8 +941,8 @@ export function KycVerificationPage() {
             )}
           </div>
 
-          {/* Stepper Footer Controls */}
-          {!isSubmitted && currentStep !== 5 && currentStep !== 6 && (
+          {/* Stepper Footer Controls – hidden during Step 1 OTP phase (the OTP card handles its own submission) */}
+          {!isSubmitted && currentStep !== 5 && currentStep !== 6 && !step1OtpPhase && (
             <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between">
               <button
                 type="button"

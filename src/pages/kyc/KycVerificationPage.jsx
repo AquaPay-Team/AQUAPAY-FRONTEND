@@ -490,14 +490,8 @@ export function KycVerificationPage() {
     }
   };
 
-  const handleVerifyAadhaarOtp = async () => {
-    const otp = otpValue.join("");
-    if (otp.length !== 6) {
-      toast.error("Please enter the complete 6-digit Aadhaar OTP.");
-      return;
-    }
-
-    setIsVerifyingOtp(true);
+  const handleCheckAadhaarStatus = async () => {
+    setIsCheckingAadhaarStatus(true);
     try {
       // 1. Check Aadhaar session status from backend (IDTO/UIDAI callback completion)
       const sessId = digilockerSessionId;
@@ -510,8 +504,8 @@ export function KycVerificationPage() {
           setAadhaarPollInterval(null);
         }
         setAadhaarVerified(true);
-        const verifiedName = statusRes.data.verifiedName;
-        const maskedId = statusRes.data.maskedIdentifier;
+        const verifiedName = statusRes.data?.verifiedName;
+        const maskedId = statusRes.data?.maskedIdentifier;
         setAadhaarVerifiedData({ verifiedName, maskedIdentifier: maskedId });
         if (verifiedName) {
           setFormData((prev) => ({
@@ -545,13 +539,13 @@ export function KycVerificationPage() {
 
       // If neither, inform user
       toast.info(
-        "Aadhaar authentication is still in progress. Please ensure the OTP is submitted in the UIDAI verification window, then click Verify again."
+        "Aadhaar authentication is still in progress. Please complete the OTP submission in the Government DigiLocker window, then click Check Verification Status."
       );
     } catch (err) {
       const parsed = parseApiError(err);
-      toast.error(parsed.message || "Failed to verify Aadhaar OTP. Please try again.");
+      toast.error(parsed.message || "Failed to check Aadhaar status. Please try again.");
     } finally {
-      setIsVerifyingOtp(false);
+      setIsCheckingAadhaarStatus(false);
     }
   };
 
@@ -657,17 +651,12 @@ export function KycVerificationPage() {
 
     // STEP 2 VALIDATION (Aadhaar)
     if (currentStep === 2) {
-      const cleanAadhaar = String(formData.aadhaarNumber || "").replace(/\D/g, "");
-      if (cleanAadhaar.length !== 12) {
-        toast.error("Please enter a valid 12-digit Aadhaar number.");
-        return;
-      }
-      if (!otpSent) {
-        toast.error("Please click 'Send OTP' to request your Aadhaar verification code.");
-        return;
-      }
       if (!aadhaarVerified) {
-        toast.error("Please enter the 6-digit OTP and click 'Verify Aadhaar OTP' before proceeding.");
+        if (otpSent) {
+          toast.error("Please complete the OTP verification in the DigiLocker window and click 'Check Verification Status'.");
+        } else {
+          toast.error("Please verify your Aadhaar identity via DigiLocker before proceeding to Step 3.");
+        }
         return;
       }
       setCompletedSteps((prev) => Array.from(new Set([...prev, 2])));
@@ -956,17 +945,14 @@ export function KycVerificationPage() {
               <Step2AadhaarAuth
                 formData={formData}
                 onChange={handleChange}
-                otpSent={otpSent}
-                otpTimer={otpTimer}
-                otpValue={otpValue}
-                onOtpValueChange={setOtpValue}
                 onTriggerOtp={handleTriggerOtp}
-                aadhaarVerified={aadhaarVerified}
-                isVerifyingOtp={isVerifyingOtp}
-                onVerifyOtp={handleVerifyAadhaarOtp}
-                verifiedData={aadhaarVerifiedData}
                 isInitiating={isInitiatingDigilocker}
-                onResetOtp={() => setOtpSent(false)}
+                digilockerSessionActive={otpSent}
+                onCheckStatus={handleCheckAadhaarStatus}
+                isCheckingStatus={isCheckingAadhaarStatus}
+                aadhaarVerified={aadhaarVerified}
+                verifiedData={aadhaarVerifiedData}
+                onResetSession={() => setOtpSent(false)}
               />
             )}
 

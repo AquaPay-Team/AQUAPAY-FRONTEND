@@ -61,6 +61,8 @@ export default function AdminDashboardPage() {
       setAddAgentModalOpen(true);
     } else if (location.pathname.includes('/admin/users')) {
       setActiveTab('all-users');
+    } else if (location.pathname.includes('/admin/kyc')) {
+      setActiveTab('all-users');
     } else if (location.pathname.includes('/admin/dashboard')) {
       setActiveTab('dashboard');
     }

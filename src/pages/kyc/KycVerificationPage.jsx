@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { parseApiError } from "../../utils/errorHandler";
+import { isAdminRole } from "../../constants/roles";
 
 // Reusable White-Theme Components
 import KycHeader from "../../features/kyc/components/KycHeader";
@@ -120,27 +121,45 @@ export function KycVerificationPage() {
     { id: 7, name: "Review & Submit", icon: Send, desc: "Final submission" },
   ];
 
-  // Fetch KYC status on mount
+  // Fetch KYC status on mount & enforce Admin exemption
   useEffect(() => {
+    // Admin accounts are exempt from merchant KYC onboarding
+    if (storedUser && isAdminRole(storedUser)) {
+      toast.info("Admin accounts are exempt from KYC verification.");
+      navigate("/admin/dashboard", { replace: true });
+      return;
+    }
+
     async function fetchStatus() {
       try {
         const res = await getKycStatus();
-        if (res?.data?.kyc) {
-          if (res.data.kyc.status === "completed" || res.data.kyc.status === "approved") {
-            navigate("/dashboard");
+        if (res?.data) {
+          const kycData = res.data;
+
+          if (kycData.hasCase === false) {
+            if (storedUser && isAdminRole(storedUser)) {
+              navigate("/admin/dashboard", { replace: true });
+              return;
+            }
+            toast.error("No active KYC application found for this account.");
             return;
-          } else if (res.data.kyc.status === "submitted" || res.data.kyc.status === "under_review") {
+          }
+
+          if (kycData.status === "completed" || kycData.status === "approved") {
+            navigate("/user/dashboard", { replace: true });
+            return;
+          } else if (kycData.status === "submitted" || kycData.status === "under_review") {
             setIsSubmitted(true);
             return;
           }
 
-          if (Array.isArray(res.data.completedSteps)) {
-            setCompletedSteps(res.data.completedSteps);
+          if (Array.isArray(kycData.completedSteps)) {
+            setCompletedSteps(kycData.completedSteps);
           }
 
-          if (res.data.currentStep) {
-            const serverCurrentStep = Number(res.data.currentStep);
-            if (serverCurrentStep > 1 && !res.data.completedSteps?.includes(1)) {
+          if (kycData.currentStep) {
+            const serverCurrentStep = Number(kycData.currentStep);
+            if (serverCurrentStep > 1 && !kycData.completedSteps?.includes(1)) {
               setCurrentStep(1);
             } else {
               setCurrentStep(serverCurrentStep);
@@ -474,7 +493,15 @@ export function KycVerificationPage() {
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (err) {
         const parsed = parseApiError(err);
-        toast.error(parsed.message || "Failed to submit agreement.");
+        if (parsed.type === "NOT_FOUND" || err.response?.status === 404) {
+          toast.error("KYC application not found. Admin accounts are exempt from KYC.");
+          if (storedUser && isAdminRole(storedUser)) {
+            navigate("/admin/dashboard", { replace: true });
+            return;
+          }
+        } else {
+          toast.error(parsed.message || "Failed to submit agreement.");
+        }
         return;
       } finally {
         setIsSavingStep(false);

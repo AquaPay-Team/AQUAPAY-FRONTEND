@@ -3,12 +3,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, ChevronLeft, ChevronRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { LightAnimatedBackground } from "../../components/common/LightAnimatedBackground";
 import { ErrorAlert } from "../../components/common/ErrorAlert";
 import { parseApiError } from "../../utils/errorHandler";
-import { loginUser } from "../../api/auth.api";
+import { authenticateWithMe } from "../../api/auth.api";
+import { isAdminRole, isNormalUserRole } from "../../constants/roles";
 
 const schema = z.object({
   email: z.string().min(1, "Please enter your email or username"),
@@ -51,49 +52,87 @@ export const LoginPage = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // If already logged in as Normal User, redirect straight to /user/dashboard
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "null");
+      if (token && isNormalUserRole(user)) {
+        navigate("/user/dashboard", { replace: true });
+      }
+    } catch {
+      // ignore
+    }
+  }, [navigate]);
+
   const onSubmit = async (data) => {
     try {
       setIsLoading(true);
       setApiError(null);
 
-      const response = await loginUser({
+      // 1. Shared authentication via POST /api/auth/login + GET /api/auth/me
+      const { accessToken, user } = await authenticateWithMe({
         identifier: data.email.trim(),
         password: data.password,
       });
 
-      if (!response || !response.success) {
-        throw new Error(response?.message || "Login failed");
+      // 2. Deny Admin role on Normal User Login Page
+      if (isAdminRole(user)) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        localStorage.removeItem("adminUser");
+
+        const msg = "Admin accounts cannot sign in through the User Login. Please use the Admin Login.";
+        setApiError({
+          title: "Access Denied",
+          message: msg,
+        });
+        toast.error(msg);
+        return;
       }
 
-      if (response.data?.accessToken) {
-        localStorage.setItem("accessToken", response.data.accessToken);
-      }
-      if (response.data?.user) {
-        localStorage.setItem("user", JSON.stringify(response.data.user));
+      // 3. Verify user belongs to an authorized Normal User role
+      if (!isNormalUserRole(user)) {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        localStorage.removeItem("adminUser");
+
+        const msg = "Access Denied: Unrecognized account role. Please contact system support.";
+        setApiError({
+          title: "Access Denied",
+          message: msg,
+        });
+        toast.error(msg);
+        return;
       }
 
-      toast.success(response.message || "Welcome back! Signed in successfully.");
+      // 4. Store credentials for authorized normal user
+      if (accessToken) {
+        localStorage.setItem("accessToken", accessToken);
+      }
+      if (user) {
+        localStorage.setItem("user", JSON.stringify(user));
+      }
 
-      // Check KYC status: SuperAdmin (role 1) is exempt from KYC
-      const user = response.data?.user;
-      const isSuperAdmin = user?.role_id === 1;
+      toast.success(
+        `Welcome back, ${user?.name || "User"}! Signed in successfully.`
+      );
+
+      // 5. KYC Status Check for Normal Users
       const isKycDone =
-        isSuperAdmin ||
-        (user?.kyc &&
-          ["approved", "completed", "verified", "submitted"].includes(
-            String(user.kyc.status || "").toLowerCase()
-          ));
+        user?.kyc &&
+        ["approved", "completed", "verified", "submitted"].includes(
+          String(user.kyc.status || "").toLowerCase()
+        );
 
       if (!isKycDone) {
-        toast.info("Please complete your KYC verification to access services.");
-        navigate("/kyc");
-      } else if (user?.role_id && user.role_id >= 1 && user.role_id <= 7) {
-        navigate("/admin");
+        toast.info("Please complete your KYC verification to access your dashboard.");
+        navigate("/kyc", { replace: true });
       } else {
-        navigate("/dashboard");
+        navigate("/user/dashboard", { replace: true });
       }
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("User login error:", err);
       const parsed = parseApiError(err);
       setApiError(parsed);
       toast.error(parsed.message);
@@ -254,6 +293,16 @@ export const LoginPage = () => {
                   Terms & Conditions
                 </button>.
               </p>
+
+              {/* Link to Admin Login */}
+              <div className="pt-2 text-center border-t border-slate-100">
+                <Link
+                  to="/login/admin"
+                  className="text-xs text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  System Administrator? <span className="text-blue-600 font-semibold hover:underline">Admin Login</span>
+                </Link>
+              </div>
             </form>
           </div>
         </div>

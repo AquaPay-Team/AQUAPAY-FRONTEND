@@ -511,7 +511,7 @@ export function KycVerificationPage() {
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("user");
-    navigate("/login");
+    navigate("/login/user");
   };
 
   if (isSubmitted) {
@@ -519,13 +519,7 @@ export function KycVerificationPage() {
       <KycSuccessView
         referenceId={referenceId || "AQP-" + Math.floor(100000 + Math.random() * 900000)}
         onProceedDashboard={() => {
-          const user = storedUser || JSON.parse(localStorage.getItem("user") || "{}");
-          const roleId = Number(user?.role_id) || 8;
-          if (roleId >= 1 && roleId <= 7) {
-            navigate("/admin");
-          } else {
-            navigate("/dashboard");
-          }
+          navigate("/user/dashboard");
         }}
       />
     );

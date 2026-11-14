@@ -75,27 +75,22 @@ export default function AdminLoginPage() {
         `Welcome back, ${user?.name || "Administrator"}! Signed in successfully.`
       );
 
-      // SuperAdmin (role_id 1) has no KYC requirement.
-      // Other roles (Sub Admin, etc.) must complete KYC before accessing the portal.
-      const isKycDone =
-        user?.kyc &&
-        ["approved", "completed", "verified", "submitted"].includes(
-          String(user.kyc.status || "").toLowerCase()
-        );
-
-      if (user?.role_id !== 1 && !isKycDone) {
-        toast.info("Please complete your KYC verification first.");
-        navigate("/kyc", { replace: true });
-        return;
-      }
-
       const redirectPath = location.state?.from?.pathname || "/admin";
       navigate(redirectPath, { replace: true });
     } catch (err) {
       console.error("Admin login error:", err);
       const parsed = parseApiError(err);
-      setApiError(parsed);
-      toast.error(parsed.message);
+      // Ensure specific unauthorized message is highlighted
+      if (err.message && err.message.includes("not authorized to access the Admin Panel")) {
+        setApiError({
+          title: "Access Denied",
+          message: err.message,
+        });
+        toast.error(err.message);
+      } else {
+        setApiError(parsed);
+        toast.error(parsed.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -234,13 +229,13 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        {/* Switch to Merchant Login */}
+        {/* Switch to User Login */}
         <div className="mt-4 text-center border-t border-slate-100 pt-3">
           <Link
-            to="/login"
+            to="/login/user"
             className="text-xs text-slate-500 hover:text-slate-800 transition-colors"
           >
-            Looking for Merchant Portal? <span className="text-blue-600 font-semibold hover:underline">Merchant Login</span>
+            Looking for User Portal? <span className="text-blue-600 font-semibold hover:underline">User Login</span>
           </Link>
         </div>
       </div>

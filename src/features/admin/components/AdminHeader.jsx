@@ -42,7 +42,7 @@ export function AdminHeader({
     localStorage.removeItem("user");
     localStorage.removeItem("adminUser");
     toast.info("Signed out successfully");
-    navigate("/login", { replace: true });
+    navigate("/login/admin", { replace: true });
   };
 
   return (

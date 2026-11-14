@@ -1,4 +1,6 @@
 import api from "../../../api/axios";
+import { authenticateWithMe, getCurrentUser } from "../../../api/auth.api";
+import { isAdminRole } from "../../../constants/roles";
 
 /**
  * Admin Authentication & Backend-Backed API Service
@@ -7,43 +9,31 @@ import api from "../../../api/axios";
  * - User Management: GET /api/users, POST /api/users, PATCH /api/users/:id, GET /api/users/:id
  */
 
-export const ADMIN_ROLES = ["Admin", "Sub Admin", "AD", "SA", "Super Admin", "SuperAdmin"];
-
 export function isAdminUser(user) {
-  if (!user) return false;
-  // Role ID 1 to 7 are Admin and Channel Hierarchy Managers
-  if (user.role_id && user.role_id >= 1 && user.role_id <= 7) return true;
-  const roleName = String(user.role_name || "").trim().toUpperCase();
-  const roleSlug = String(user.role_slug || "").trim().toUpperCase();
-  return (
-    roleName.includes("ADMIN") ||
-    roleSlug === "AD" ||
-    roleSlug === "SA" ||
-    ADMIN_ROLES.some((r) => r.toUpperCase() === roleName || r.toUpperCase() === roleSlug)
-  );
+  return isAdminRole(user);
 }
 
-// 1. Admin Authentication
+// 1. Admin Authentication Flow
 export const adminLogin = async ({ identifier, password }) => {
-  const response = await api.post("/auth/login", {
+  // Use existing backend auth endpoint POST /api/auth/login + GET /api/auth/me
+  const { accessToken, user } = await authenticateWithMe({
     identifier: identifier.trim(),
     password,
   });
 
-  if (!response?.data?.success) {
-    throw new Error(response?.data?.message || "Admin authentication failed");
-  }
-
-  const { accessToken, user } = response.data.data;
-
-  // Verify that the account has administrator privileges
+  // Verify that the authenticated role is an authorized Admin role
   if (!isAdminUser(user)) {
+    // Clear any temporary tokens/session
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("adminUser");
+
     throw new Error(
-      "Access Denied: Your account does not have administrative privileges. Please log in through the Merchant Portal."
+      "You are not authorized to access the Admin Panel. Please use the User Login."
     );
   }
 
-  // Store credentials in localStorage
+  // Store credentials securely in localStorage
   if (accessToken) {
     localStorage.setItem("accessToken", accessToken);
   }
@@ -52,12 +42,11 @@ export const adminLogin = async ({ identifier, password }) => {
     localStorage.setItem("adminUser", JSON.stringify(user));
   }
 
-  return response.data;
+  return { success: true, data: { accessToken, user } };
 };
 
 export const getAdminProfile = async () => {
-  const response = await api.get("/auth/me");
-  return response.data;
+  return getCurrentUser();
 };
 
 export const adminLogout = () => {
@@ -96,5 +85,4 @@ export default {
   fetchBackendUserById,
   createBackendUser,
   updateBackendUser,
-  ADMIN_ROLES,
 };

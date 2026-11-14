@@ -119,7 +119,7 @@ export const LoginPage = () => {
             {/* AquaPay Brand Logo */}
             <div className="mb-6">
               <img
-                src="/aquapay-logo.png"
+                src="/aquapay-logo.jpeg"
                 alt="AquaPay"
                 className="h-16 sm:h-20 w-auto object-contain select-none"
               />
@@ -146,7 +146,7 @@ export const LoginPage = () => {
                   htmlFor="login-email" 
                   className="block text-[13px] font-medium text-[#4b5563] mb-1.5"
                 >
-                  Username or Email
+                  Email or Mobile No
                 </label>
                 <input
                   {...register("email")}
@@ -244,7 +244,7 @@ export const LoginPage = () => {
                 <button
                   type="button"
                   onClick={handleTerms}
-                  className="text-[#3b82f6] hover:underline font-medium cursor-pointer"
+                  className="text-blue-600 hover:underline font-medium cursor-pointer"
                 >
                   Terms & Conditions
                 </button>.
@@ -301,7 +301,7 @@ export const LoginPage = () => {
                 onClick={() => setCurrentSlide(idx)}
                 className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
                   idx === currentSlide
-                    ? "w-7 bg-[#3868B0] shadow-xs"
+                    ? "w-7 bg-blue-600 shadow-xs"
                     : "w-2 bg-slate-300 hover:bg-slate-400"
                 }`}
                 title={`Go to slide ${idx + 1}`}

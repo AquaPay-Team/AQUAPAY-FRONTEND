@@ -215,7 +215,7 @@ export const ForgotPasswordPage = () => {
             {/* Logo */}
             <div className="mb-6 flex items-center justify-between">
               <img
-                src="/aquapay-logo.png"
+                src="/aquapay-logo.jpeg"
                 alt="AquaPay"
                 className="h-14 sm:h-16 w-auto object-contain select-none cursor-pointer"
                 onClick={() => navigate("/login")}

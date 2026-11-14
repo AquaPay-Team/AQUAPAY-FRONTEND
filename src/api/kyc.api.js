@@ -23,13 +23,13 @@ export const verifyBasicDetailsOtp = async (otp) => {
 };
 
 // Step 2 & 3: Document Verification (DigiLocker / Aadhaar / PAN)
-export const initiateAadhaarVerification = async (userConsent = true) => {
-  const response = await api.post("/kyc/digilocker/aadhaar/initiate", { userConsent });
+export const initiateAadhaarVerification = async (consent = true) => {
+  const response = await api.post("/kyc/digilocker/aadhaar/initiate", { consent });
   return response.data;
 };
 
-export const initiatePanVerification = async (userConsent = true) => {
-  const response = await api.post("/kyc/digilocker/pan/initiate", { userConsent });
+export const initiatePanVerification = async (consent = true) => {
+  const response = await api.post("/kyc/digilocker/pan/initiate", { consent });
   return response.data;
 };
 

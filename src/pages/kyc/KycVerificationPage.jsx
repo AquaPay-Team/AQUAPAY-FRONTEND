@@ -387,10 +387,8 @@ export function KycVerificationPage() {
       setIsSavingStep(true);
       try {
         await saveBankDetails({
-          accountHolderName: formData.accountHolderName || formData.fullName,
-          bankName: formData.bankName,
-          ifscCode: formData.ifscCode,
-          accountNumber: formData.accountNumber,
+          ifscCode: String(formData.ifscCode || "").trim().toUpperCase(),
+          accountNumber: String(formData.accountNumber || "").trim(),
         });
       } catch (err) {
         // Fallback gracefully in frontend so merchant testing is never interrupted by backend errors

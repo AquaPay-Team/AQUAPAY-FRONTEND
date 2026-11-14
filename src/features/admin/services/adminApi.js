@@ -11,8 +11,8 @@ export const ADMIN_ROLES = ["Admin", "Sub Admin", "AD", "SA", "Super Admin", "Su
 
 export function isAdminUser(user) {
   if (!user) return false;
-  // Role ID 1 is Admin, Role ID 2 is Sub Admin
-  if (user.role_id === 1 || user.role_id === 2) return true;
+  // Role ID 1 to 7 are Admin and Channel Hierarchy Managers
+  if (user.role_id && user.role_id >= 1 && user.role_id <= 7) return true;
   const roleName = String(user.role_name || "").trim().toUpperCase();
   const roleSlug = String(user.role_slug || "").trim().toUpperCase();
   return (

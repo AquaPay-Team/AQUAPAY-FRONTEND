@@ -74,16 +74,21 @@ export const LoginPage = () => {
 
       toast.success(response.message || "Welcome back! Signed in successfully.");
 
-      // Check KYC status for user: redirect to /kyc if not completed
+      // Check KYC status: SuperAdmin (role 1) is exempt from KYC
       const user = response.data?.user;
+      const isSuperAdmin = user?.role_id === 1;
       const isKycDone =
-        user?.kyc &&
-        ["approved", "completed", "verified"].includes(
-          String(user.kyc.status || "").toLowerCase()
-        );
+        isSuperAdmin ||
+        (user?.kyc &&
+          ["approved", "completed", "verified", "submitted"].includes(
+            String(user.kyc.status || "").toLowerCase()
+          ));
 
       if (!isKycDone) {
+        toast.info("Please complete your KYC verification to access services.");
         navigate("/kyc");
+      } else if (user?.role_id && user.role_id >= 1 && user.role_id <= 7) {
+        navigate("/admin");
       } else {
         navigate("/dashboard");
       }

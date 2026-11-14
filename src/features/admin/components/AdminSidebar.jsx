@@ -22,10 +22,24 @@ export function AdminSidebar({
 }) {
   const navigate = useNavigate();
 
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  const roleId = Number(currentUser.role_id) || 1;
+  const isSuperAdmin = roleId === 1;
+  const canManageAgents = roleId >= 1 && roleId <= 7;
+
   const handleLogout = () => {
-    adminLogout();
-    toast.info("Logged out from Admin Console");
-    navigate("/admin/login", { replace: true });
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("adminUser");
+    toast.info("Signed out successfully");
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -63,7 +77,7 @@ export function AdminSidebar({
 
       {/* Navigation Tree - Pure Backend-Backed Functionality */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 text-sm custom-scrollbar">
-        {/* Dashboard Overview */}
+        {/* Dashboard / Network Overview */}
         <button
           onClick={() => {
             setActiveTab('dashboard');
@@ -76,58 +90,80 @@ export function AdminSidebar({
           }`}
         >
           <LayoutDashboard className="w-5 h-5 shrink-0" />
-          {!sidebarCollapsed && <span>Dashboard Overview</span>}
+          {!sidebarCollapsed && (
+            <span>
+              {isSuperAdmin
+                ? 'Dashboard Overview'
+                : roleId === 8
+                ? 'My Terminal Overview'
+                : 'Network Overview'}
+            </span>
+          )}
         </button>
 
-        {/* Member Directory - Backed by /api/users */}
-        <NavGroup
-          title="User Directory"
-          icon={<Users className="w-5 h-5 shrink-0" />}
-          isOpen={openNavCategory['Member']}
-          onToggle={() => toggleCategory('Member')}
-          collapsed={sidebarCollapsed}
-        >
-          <NavItem
-            label="All Users"
-            active={activeTab === 'all-users'}
-            onClick={() => { setActiveTab('all-users'); setMobileSidebarOpen(false); }}
-          />
-          <NavItem
-            label="Retailers"
-            active={activeTab === 'retailer'}
-            onClick={() => { setActiveTab('retailer'); setMobileSidebarOpen(false); }}
-          />
-          <NavItem
-            label="Distributors"
-            active={activeTab === 'distributor'}
-            onClick={() => { setActiveTab('distributor'); setMobileSidebarOpen(false); }}
-          />
-          <NavItem
-            label="Master Distributors"
-            active={activeTab === 'master-distributor'}
-            onClick={() => { setActiveTab('master-distributor'); setMobileSidebarOpen(false); }}
-          />
-          <NavItem
-            label="CNF / ASM"
-            active={activeTab === 'cnf-asm'}
-            onClick={() => { setActiveTab('cnf-asm'); setMobileSidebarOpen(false); }}
-          />
-          <NavItem
-            label="State Head (SH)"
-            active={activeTab === 'sh'}
-            onClick={() => { setActiveTab('sh'); setMobileSidebarOpen(false); }}
-          />
-          <NavItem
-            label="NSM / ZSH"
-            active={activeTab === 'nsm-zsh'}
-            onClick={() => { setActiveTab('nsm-zsh'); setMobileSidebarOpen(false); }}
-          />
-          <NavItem
-            label="Sub Admins"
-            active={activeTab === 'sub-admin'}
-            onClick={() => { setActiveTab('sub-admin'); setMobileSidebarOpen(false); }}
-          />
-        </NavGroup>
+        {/* User / Agent Directory - Rendered for roles that manage downline (roles 1-7) */}
+        {canManageAgents && (
+          <NavGroup
+            title={isSuperAdmin ? "User Directory" : "My Downline Network"}
+            icon={<Users className="w-5 h-5 shrink-0" />}
+            isOpen={openNavCategory['Member']}
+            onToggle={() => toggleCategory('Member')}
+            collapsed={sidebarCollapsed}
+          >
+            <NavItem
+              label={isSuperAdmin ? "All Users" : "All My Agents"}
+              active={activeTab === 'all-users'}
+              onClick={() => { setActiveTab('all-users'); setMobileSidebarOpen(false); }}
+            />
+            <NavItem
+              label="Retailers"
+              active={activeTab === 'retailer'}
+              onClick={() => { setActiveTab('retailer'); setMobileSidebarOpen(false); }}
+            />
+            {roleId <= 6 && (
+              <NavItem
+                label="Distributors"
+                active={activeTab === 'distributor'}
+                onClick={() => { setActiveTab('distributor'); setMobileSidebarOpen(false); }}
+              />
+            )}
+            {roleId <= 5 && (
+              <NavItem
+                label="Master Distributors"
+                active={activeTab === 'master-distributor'}
+                onClick={() => { setActiveTab('master-distributor'); setMobileSidebarOpen(false); }}
+              />
+            )}
+            {roleId <= 4 && (
+              <NavItem
+                label="CNF / ASM"
+                active={activeTab === 'cnf-asm'}
+                onClick={() => { setActiveTab('cnf-asm'); setMobileSidebarOpen(false); }}
+              />
+            )}
+            {roleId <= 3 && (
+              <NavItem
+                label="State Head (SH)"
+                active={activeTab === 'sh'}
+                onClick={() => { setActiveTab('sh'); setMobileSidebarOpen(false); }}
+              />
+            )}
+            {roleId <= 2 && (
+              <NavItem
+                label="NSM / ZSH"
+                active={activeTab === 'nsm-zsh'}
+                onClick={() => { setActiveTab('nsm-zsh'); setMobileSidebarOpen(false); }}
+              />
+            )}
+            {isSuperAdmin && (
+              <NavItem
+                label="Sub Admins"
+                active={activeTab === 'sub-admin'}
+                onClick={() => { setActiveTab('sub-admin'); setMobileSidebarOpen(false); }}
+              />
+            )}
+          </NavGroup>
+        )}
       </div>
 
       {/* Sidebar Footer with Sign Out */}

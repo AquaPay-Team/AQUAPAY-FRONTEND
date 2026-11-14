@@ -79,7 +79,7 @@ export default function AdminLoginPage() {
       // Other roles (Sub Admin, etc.) must complete KYC before accessing the portal.
       const isKycDone =
         user?.kyc &&
-        ["approved", "completed", "verified"].includes(
+        ["approved", "completed", "verified", "submitted"].includes(
           String(user.kyc.status || "").toLowerCase()
         );
 

@@ -16,14 +16,17 @@ export function ProtectedRoute({ requireKyc = false }) {
       }
     })();
 
-    const isKycDone =
-      user?.kyc &&
-      ["approved", "completed", "verified"].includes(
-        String(user.kyc.status || "").toLowerCase()
-      );
+    // Role 1 (Super Admin) is exempt from KYC
+    if (user?.role_id !== 1) {
+      const isKycDone =
+        user?.kyc &&
+        ["approved", "completed", "verified", "submitted"].includes(
+          String(user.kyc.status || "").toLowerCase()
+        );
 
-    if (!isKycDone) {
-      return <Navigate to="/kyc" replace />;
+      if (!isKycDone) {
+        return <Navigate to="/kyc" replace />;
+      }
     }
   }
 

@@ -518,7 +518,15 @@ export function KycVerificationPage() {
     return (
       <KycSuccessView
         referenceId={referenceId || "AQP-" + Math.floor(100000 + Math.random() * 900000)}
-        onProceedDashboard={() => navigate("/dashboard")}
+        onProceedDashboard={() => {
+          const user = storedUser || JSON.parse(localStorage.getItem("user") || "{}");
+          const roleId = Number(user?.role_id) || 8;
+          if (roleId >= 1 && roleId <= 7) {
+            navigate("/admin");
+          } else {
+            navigate("/dashboard");
+          }
+        }}
       />
     );
   }

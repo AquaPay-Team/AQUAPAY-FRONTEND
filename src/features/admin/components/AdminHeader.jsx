@@ -20,27 +20,29 @@ export function AdminHeader({
 }) {
   const navigate = useNavigate();
 
-  const adminUser = (() => {
+  const currentUser = (() => {
     try {
-      return JSON.parse(localStorage.getItem("adminUser") || localStorage.getItem("user") || "{}");
+      return JSON.parse(localStorage.getItem("user") || localStorage.getItem("adminUser") || "{}");
     } catch {
       return {};
     }
   })();
 
-  const adminName = adminUser.name || "Administrator";
-  const adminRole = adminUser.role_name || (adminUser.role_id === 1 ? "Admin" : "Administrator");
+  const adminName = currentUser.name || "AquaPay Member";
+  const adminRole = currentUser.role_name || (currentUser.role_id === 1 ? "Admin" : "Agent");
   const initials = adminName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(0, 2)
-    .toUpperCase() || "AD";
+    .toUpperCase() || "AP";
 
   const handleLogout = () => {
-    adminLogout();
-    toast.info("Logged out from Admin Console");
-    navigate("/admin/login", { replace: true });
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("adminUser");
+    toast.info("Signed out successfully");
+    navigate("/login", { replace: true });
   };
 
   return (

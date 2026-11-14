@@ -10,6 +10,30 @@ export function AddAgentModal({
 
   const [isLoading, setIsLoading] = useState(false);
 
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  const creatorRoleId = Number(currentUser.role_id) || 1;
+
+  // Permitted child roles according to backend role_hierarchy:
+  // Admin (1) -> Sub Admin (2) -> NSM (3) -> SH (4) -> CNF (5) -> MD (6) -> DT (7) -> RT (8)
+  const allRoles = [
+    { value: 'SA', label: 'Sub Admin (SA)', maxCreatorRole: 1 },
+    { value: 'NSM', label: 'NSM / ZSH', maxCreatorRole: 2 },
+    { value: 'SH', label: 'State Head (SH)', maxCreatorRole: 3 },
+    { value: 'CNF', label: 'CNF / ASM', maxCreatorRole: 4 },
+    { value: 'MD', label: 'Master Distributor (MD)', maxCreatorRole: 5 },
+    { value: 'DT', label: 'Distributor (DT)', maxCreatorRole: 6 },
+    { value: 'RT', label: 'Retailer (RT)', maxCreatorRole: 7 },
+  ];
+
+  const permittedRoles = allRoles.filter((r) => creatorRoleId <= r.maxCreatorRole);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -79,16 +103,14 @@ export function AddAgentModal({
               <label className="block font-semibold text-slate-700 mb-1">Role Tier *</label>
               <select
                 name="role"
-                defaultValue="RT"
+                defaultValue={permittedRoles[permittedRoles.length - 1]?.value || "RT"}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:outline-none focus:border-blue-500 font-medium"
               >
-                <option value="RT">Retailer (RT)</option>
-                <option value="DT">Distributor (DT)</option>
-                <option value="MD">Master Distributor (MD)</option>
-                <option value="CNF">CNF / ASM</option>
-                <option value="SH">State Head (SH)</option>
-                <option value="NSM">NSM / ZSH</option>
-                <option value="SA">Sub Admin (SA)</option>
+                {permittedRoles.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

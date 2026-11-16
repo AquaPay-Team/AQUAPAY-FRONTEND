@@ -44,7 +44,7 @@ export function UserLayout() {
         email: agentData.email.trim().toLowerCase(),
         mobile: agentData.mobile.trim(),
         role: agentData.role,
-        password: agentData.password,
+        password: agentData.password || "Welcome@123",
         shopname: agentData.shopname?.trim() || null,
         city: agentData.city?.trim() || null,
         state: agentData.state?.trim() || null,
@@ -55,9 +55,9 @@ export function UserLayout() {
       const res = await createBackendUser(payload);
       if (res && res.data) {
         toast.success(`Agent ${res.data.name} onboarded successfully!`);
+        setAddAgentModalOpen(false);
         // Dispatch event or callback to reload downline
         window.dispatchEvent(new Event("aquapay:downline_updated"));
-        return res.data;
       }
     } catch (err) {
       const errMsg =
@@ -79,7 +79,7 @@ export function UserLayout() {
       {/* Main Content Area */}
       <div
         className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
-          collapsed ? "md:ml-20" : "md:ml-64"
+          collapsed ? "md:ml-20" : "md:ml-72"
         }`}
       >
         <DashboardHeader

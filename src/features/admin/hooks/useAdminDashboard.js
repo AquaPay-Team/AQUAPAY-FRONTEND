@@ -73,6 +73,10 @@ export function useAdminDashboard() {
         return 'NSM / ZSH';
       case 'sub-admin':
         return 'Sub Admin';
+      case 'kyc':
+        return 'KYC Compliance';
+      case 'reports':
+        return 'Audit & Reports';
       default:
         return 'Member';
     }
